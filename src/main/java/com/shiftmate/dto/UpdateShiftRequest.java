@@ -1,0 +1,32 @@
+package com.shiftmate.dto;
+
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+
+/**
+ * Request payload for updating an existing shift's details.
+ */
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+public class UpdateShiftRequest {
+
+    @NotNull(message = "Department ID is required.")
+    private Long departmentId;
+
+    @NotNull(message = "Shift date is required.")
+    private LocalDate shiftDate;
+
+    @NotNull(message = "Start time is required.")
+    private LocalTime startTime;
+
+    @NotNull(message = "End time is required.")
+    private LocalTime endTime;
+}
