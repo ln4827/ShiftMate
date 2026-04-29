@@ -5,9 +5,11 @@ import com.shiftmate.dto.CreateShiftRequest;
 import com.shiftmate.dto.ShiftResponse;
 import com.shiftmate.dto.UpdateShiftRequest;
 import com.shiftmate.entity.*;
+import com.shiftmate.entity.Notification;
 import com.shiftmate.exception.BusinessRuleException;
 import com.shiftmate.exception.ResourceNotFoundException;
 import com.shiftmate.repository.*;
+import com.shiftmate.service.NotificationService;
 import com.shiftmate.service.ShiftService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +41,7 @@ public class ShiftServiceImpl implements ShiftService {
     private final DepartmentRepository departmentRepository;
     private final EmployeeRepository employeeRepository;
     private final RoleRepository roleRepository;
+    private final NotificationService notificationService;
 
     // -------------------------------------------------------------------------
     // Weekly schedule queries
@@ -157,6 +160,14 @@ public class ShiftServiceImpl implements ShiftService {
         shiftRepository.save(shift);
         log.info("Published shift id={}", shiftId);
 
+        shift.getAssignments().forEach(a ->
+                notificationService.send(a.getEmployee().getId(),
+                        Notification.Type.SCHEDULE_PUBLISHED,
+                        "Your shift on " + shift.getShiftDate() + " ("
+                        + shift.getDepartment().getName() + ", "
+                        + shift.getStartTime() + "–" + shift.getEndTime()
+                        + ") has been published."));
+
         return ShiftResponse.from(resolveShiftWithCoverage(restaurantId, shiftId));
     }
 
@@ -222,6 +233,16 @@ public class ShiftServiceImpl implements ShiftService {
 
         coverageRequirementRepository.delete(requirement);
         log.info("Deleted coverage requirement id={} from shift id={}", requirementId, shiftId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ShiftResponse> getAllPublishedForWeek(Long restaurantId, LocalDate weekStart) {
+        LocalDate weekEnd = weekStart.plusDays(6);
+        return shiftRepository.findPublishedWeeklySchedule(restaurantId, weekStart, weekEnd)
+                .stream()
+                .map(ShiftResponse::from)
+                .toList();
     }
 
     // -------------------------------------------------------------------------

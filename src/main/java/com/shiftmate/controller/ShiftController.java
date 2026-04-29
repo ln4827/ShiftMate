@@ -70,6 +70,17 @@ public class ShiftController {
      * @param weekStart any date within the target week (defaults to today)
      * @return published shifts the employee is assigned to
      */
+    @GetMapping("/all-published")
+    @PreAuthorize("hasAnyRole('MANAGER', 'EMPLOYEE')")
+    public List<ShiftResponse> getAllPublished(
+            @AuthenticationPrincipal ShiftMateUserDetails principal,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weekStart) {
+
+        LocalDate monday = toMonday(weekStart != null ? weekStart : LocalDate.now());
+        return shiftService.getAllPublishedForWeek(principal.getRestaurantId(), monday);
+    }
+
     @GetMapping("/my")
     @PreAuthorize("hasAnyRole('MANAGER', 'EMPLOYEE')")
     public List<ShiftResponse> getMySchedule(

@@ -105,7 +105,28 @@ public interface ShiftRepository extends JpaRepository<Shift, Long> {
             LEFT JOIN FETCH cr.role
             LEFT JOIN FETCH s.assignments sa
             LEFT JOIN FETCH sa.role
+            LEFT JOIN FETCH sa.employee
             WHERE s.id = :id
             """)
     Optional<Shift> findByIdWithCoverageAndAssignments(@Param("id") Long id);
+
+    /**
+     * Fetches all published shifts for a restaurant within a date range with
+     * assignments eagerly loaded. Used for the employee-accessible schedule view
+     * and the swap-request target picker.
+     */
+    @Query("""
+            SELECT DISTINCT s FROM Shift s
+            JOIN FETCH s.department d
+            LEFT JOIN FETCH s.assignments sa
+            LEFT JOIN FETCH sa.employee e
+            LEFT JOIN FETCH sa.role r
+            WHERE d.restaurant.id = :restaurantId
+              AND s.shiftDate BETWEEN :from AND :to
+              AND s.isPublished = true
+            ORDER BY s.shiftDate, s.startTime
+            """)
+    List<Shift> findPublishedWeeklySchedule(@Param("restaurantId") Long restaurantId,
+                                            @Param("from") LocalDate from,
+                                            @Param("to") LocalDate to);
 }

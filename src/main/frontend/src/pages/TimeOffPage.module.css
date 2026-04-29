@@ -1,0 +1,58 @@
+.page { padding: 1.5rem; max-width: 900px; margin: 0 auto; }
+.title { font-size: 1.35rem; font-weight: 700; color: #1e293b; margin-bottom: 1rem; }
+
+.tabs { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; }
+.tab, .tabActive {
+  padding: 0.4rem 1rem; border-radius: 6px; border: 1px solid #cbd5e1;
+  font-size: 0.875rem; cursor: pointer; background: #fff; color: #475569;
+  display: flex; align-items: center; gap: 0.4rem;
+}
+.tabActive { background: #2563eb; color: #fff; border-color: #2563eb; }
+.count {
+  background: #ef4444; color: #fff; border-radius: 9999px;
+  font-size: 0.7rem; padding: 1px 6px; font-weight: 700;
+}
+
+.errorBanner { background: #fee2e2; color: #991b1b; padding: 0.6rem 1rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.875rem; }
+.formError   { background: #fee2e2; color: #991b1b; padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.82rem; margin-bottom: 0.75rem; }
+.formSuccess { background: #dcfce7; color: #15803d; padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.82rem; margin-bottom: 0.75rem; }
+
+.section { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1.25rem; margin-bottom: 1.5rem; }
+.section h3 { font-size: 0.95rem; font-weight: 700; color: #1e293b; margin: 0 0 1rem; }
+.listTitle { margin-top: 1.5rem !important; }
+
+.form { display: flex; flex-direction: column; gap: 0.75rem; max-width: 420px; }
+.form label { display: flex; flex-direction: column; gap: 4px; font-size: 0.82rem; font-weight: 600; color: #374151; }
+.form input, .form textarea {
+  padding: 0.4rem 0.6rem; border: 1px solid #d1d5db; border-radius: 6px;
+  font-size: 0.875rem; font-family: inherit; outline: none; resize: vertical;
+}
+.form input:focus, .form textarea:focus { border-color: #2563eb; }
+
+.submitBtn {
+  align-self: flex-start; padding: 0.45rem 1.25rem;
+  background: #2563eb; color: #fff; border: none; border-radius: 6px;
+  font-size: 0.875rem; cursor: pointer; font-weight: 600;
+}
+.submitBtn:hover { background: #1d4ed8; }
+.submitBtn:disabled { opacity: 0.6; cursor: default; }
+
+.empty { color: #94a3b8; font-size: 0.875rem; }
+
+.table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.table th { background: #f8fafc; color: #64748b; font-weight: 600; padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid #e2e8f0; }
+.table td { padding: 0.55rem 0.75rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: middle; }
+.table tr:last-child td { border-bottom: none; }
+
+.pending  { background: #fef9c3; color: #854d0e; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+.approved { background: #dcfce7; color: #15803d; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+.rejected { background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+
+.approveBtn, .rejectBtn {
+  padding: 0.25rem 0.6rem; border-radius: 5px; border: none;
+  font-size: 0.78rem; cursor: pointer; font-weight: 600; margin-right: 0.3rem;
+}
+.approveBtn { background: #dcfce7; color: #15803d; }
+.approveBtn:hover { background: #bbf7d0; }
+.rejectBtn  { background: #fee2e2; color: #991b1b; }
+.rejectBtn:hover  { background: #fecaca; }

@@ -129,4 +129,11 @@ public interface ShiftService {
      *         or does not belong to the given shift
      */
     void deleteCoverageRequirement(Long restaurantId, Long shiftId, Long requirementId);
+
+    /**
+     * Returns all published shifts for a restaurant in a given week.
+     * Accessible to both managers and employees — used for the swap-target picker
+     * and the employee-facing full schedule view.
+     */
+    List<ShiftResponse> getAllPublishedForWeek(Long restaurantId, LocalDate weekStart);
 }

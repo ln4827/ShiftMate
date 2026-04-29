@@ -34,12 +34,60 @@ export const authApi = {
 }
 
 export const employeeApi = {
-  list:       ()             => api.get('/employees'),
-  get:        (id)           => api.get(`/employees/${id}`),
-  create:     (data)         => api.post('/employees', data),
-  update:     (id, data)     => api.put(`/employees/${id}`, data),
-  deactivate: (id)           => api.post(`/employees/${id}/deactivate`),
-  reactivate: (id)           => api.post(`/employees/${id}/reactivate`),
-  assignRoles:(id, roleIds)  => api.put(`/employees/${id}/roles`, { roleIds }),
-  roles:      ()             => api.get('/employees/available-roles'),
+  list:        ()             => api.get('/employees'),
+  get:         (id)           => api.get(`/employees/${id}`),
+  create:      (data)         => api.post('/employees', data),
+  update:      (id, data)     => api.put(`/employees/${id}`, data),
+  deactivate:  (id)           => api.post(`/employees/${id}/deactivate`),
+  reactivate:  (id)           => api.post(`/employees/${id}/reactivate`),
+  assignRoles: (id, roleIds)  => api.put(`/employees/${id}/roles`, { roleIds }),
+  roles:       ()             => api.get('/employees/available-roles'),
+}
+
+export const departmentApi = {
+  list: () => api.get('/departments'),
+}
+
+const isoWeek = (date) => date.toISOString().split('T')[0]
+
+export const shiftApi = {
+  list:           (weekStart) => api.get(`/shifts?weekStart=${isoWeek(weekStart)}`),
+  listMine:       (weekStart) => api.get(`/shifts/my?weekStart=${isoWeek(weekStart)}`),
+  listPublished:  (weekStart) => api.get(`/shifts/all-published?weekStart=${isoWeek(weekStart)}`),
+  get:            (id)        => api.get(`/shifts/${id}`),
+  create:         (data)      => api.post('/shifts', data),
+  update:         (id, data)  => api.put(`/shifts/${id}`, data),
+  delete:         (id)        => api.delete(`/shifts/${id}`),
+  publish:        (id)        => api.post(`/shifts/${id}/publish`),
+  unpublish:      (id)        => api.post(`/shifts/${id}/unpublish`),
+  setCoverage:    (id, data)  => api.post(`/shifts/${id}/coverage`, data),
+  assign:         (shiftId, data)              => api.post(`/shifts/${shiftId}/assignments`, data),
+  unassign:       (shiftId, assignmentId)      => api.delete(`/shifts/${shiftId}/assignments/${assignmentId}`),
+}
+
+export const notificationApi = {
+  list:        () => api.get('/notifications'),
+  unreadCount: () => api.get('/notifications/unread-count'),
+  markRead:    (id) => api.post(`/notifications/${id}/read`),
+  markAllRead: () => api.post('/notifications/read-all'),
+}
+
+export const timeOffApi = {
+  request:    (data) => api.post('/time-off', data),
+  getMy:      ()     => api.get('/time-off/my'),
+  getPending: ()     => api.get('/time-off/pending'),
+  approve:    (id)   => api.post(`/time-off/${id}/approve`),
+  reject:     (id)   => api.post(`/time-off/${id}/reject`),
+}
+
+export const swapApi = {
+  request:    (data) => api.post('/swaps', data),
+  getMy:      ()     => api.get('/swaps/my'),
+  getPending: ()     => api.get('/swaps/pending'),
+  approve:    (id)   => api.post(`/swaps/${id}/approve`),
+  reject:     (id)   => api.post(`/swaps/${id}/reject`),
+}
+
+export const reportApi = {
+  hours: (weekStart) => api.get(`/reports/hours?weekStart=${isoWeek(weekStart)}`),
 }

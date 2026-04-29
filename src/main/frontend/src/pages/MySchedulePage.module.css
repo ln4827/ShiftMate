@@ -1,0 +1,109 @@
+.page { padding: 1.5rem; max-width: 1200px; margin: 0 auto; }
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.weekLabel { font-weight: 600; font-size: 0.95rem; color: #334155; flex: 1; text-align: center; }
+
+.weekBtn {
+  padding: 0.35rem 0.9rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #475569;
+}
+.weekBtn:hover { background: #f1f5f9; }
+
+.errorBanner {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 0.6rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+.loading { color: #64748b; margin-bottom: 1rem; font-size: 0.875rem; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+  align-items: start;
+}
+.dayCol { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
+.dayHeader {
+  font-weight: 700; font-size: 0.78rem; text-transform: uppercase;
+  color: #64748b; padding: 0.25rem 0.5rem; background: #f1f5f9;
+  border-radius: 6px; text-align: center;
+}
+.empty { color: #94a3b8; font-size: 0.8rem; text-align: center; padding: 0.5rem; }
+
+.card {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding: 0.7rem;
+  font-size: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.dept  { font-weight: 600; color: #1e40af; }
+.time  { color: #1e293b; font-weight: 500; }
+.role  { color: #475569; font-size: 0.75rem; }
+.role em { color: #2563eb; font-style: normal; font-weight: 600; }
+
+.swapBtn {
+  margin-top: 0.25rem;
+  padding: 0.3rem 0;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.swapBtn:hover { background: #1d4ed8; }
+
+/* Modal */
+.overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+  display: flex; align-items: center; justify-content: center; z-index: 200;
+}
+.modal {
+  background: #fff; border-radius: 12px; padding: 1.5rem;
+  width: 420px; max-width: 95vw; box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+}
+.modal h3 { margin: 0 0 0.75rem; font-size: 1rem; color: #1e293b; }
+
+.swapInfo { font-size: 0.85rem; color: #475569; margin: 0 0 0.75rem; }
+
+.modalError {
+  background: #fee2e2; color: #991b1b;
+  padding: 0.5rem 0.75rem; border-radius: 6px;
+  font-size: 0.82rem; margin-bottom: 0.75rem;
+}
+
+.form { display: flex; flex-direction: column; gap: 0.75rem; }
+.form label { display: flex; flex-direction: column; gap: 4px; font-size: 0.82rem; font-weight: 600; color: #374151; }
+.form select { padding: 0.4rem 0.6rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem; }
+.form select:focus { outline: none; border-color: #2563eb; }
+
+.noTargets { font-size: 0.8rem; color: #94a3b8; margin: 0; }
+
+.modalFooter { display: flex; justify-content: flex-end; gap: 0.5rem; }
+.modalFooter button {
+  padding: 0.4rem 1rem; border-radius: 6px; border: 1px solid #d1d5db;
+  font-size: 0.875rem; cursor: pointer; background: #fff;
+}
+.modalFooter button[type="submit"] { background: #2563eb; color: #fff; border-color: #2563eb; }
+.modalFooter button[type="submit"]:hover { background: #1d4ed8; }
+.modalFooter button[type="submit"]:disabled { opacity: 0.6; cursor: default; }
