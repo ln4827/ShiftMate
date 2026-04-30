@@ -29,10 +29,10 @@ RequireManager.propTypes = { children: PropTypes.node.isRequired }
 
 function AppLayout({ children }) {
   return (
-    <>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <NavBar />
-      <main>{children}</main>
-    </>
+      <main style={{ flex: 1, background: '#F4F7FE' }}>{children}</main>
+    </div>
   )
 }
 AppLayout.propTypes = { children: PropTypes.node.isRequired }

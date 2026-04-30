@@ -10,10 +10,10 @@ export default function SwapsPage() {
   const { user } = useAuth()
   const isManager = user?.manager
 
-  const [mySwaps, setMySwaps]   = useState([])
-  const [pending, setPending]   = useState([])
-  const [tab, setTab]           = useState('my')
-  const [error, setError]       = useState('')
+  const [mySwaps, setMySwaps] = useState([])
+  const [pending, setPending] = useState([])
+  const [tab, setTab]         = useState('my')
+  const [error, setError]     = useState('')
 
   useEffect(() => { loadMy() }, []) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (isManager && tab === 'pending') loadPending() }, [tab, isManager]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -26,13 +26,24 @@ export default function SwapsPage() {
 
   return (
     <div className={styles.page}>
-      <h2 className={styles.title}>Shift Swaps</h2>
+      <div className={styles.pageHeader}>
+        <h1 className={styles.title}>Shift Swaps</h1>
+      </div>
 
       {isManager && (
         <div className={styles.tabs}>
-          <button className={tab === 'my' ? styles.tabActive : styles.tab} onClick={() => setTab('my')}>My Swaps</button>
-          <button className={tab === 'pending' ? styles.tabActive : styles.tab} onClick={() => setTab('pending')}>
-            Approval Queue {pending.length > 0 && <span className={styles.count}>{pending.length}</span>}
+          <button
+            className={tab === 'my' ? styles.tabActive : styles.tab}
+            onClick={() => setTab('my')}
+          >
+            My Swaps
+          </button>
+          <button
+            className={tab === 'pending' ? styles.tabActive : styles.tab}
+            onClick={() => setTab('pending')}
+          >
+            Approval Queue
+            {pending.length > 0 && <span className={styles.count}>{pending.length}</span>}
           </button>
         </div>
       )}
@@ -43,7 +54,9 @@ export default function SwapsPage() {
       {tab === 'my' && (
         <div className={styles.section}>
           <h3>My Swap Requests</h3>
-          <p className={styles.hint}>To request a swap, go to <strong>My Schedule</strong> and click &ldquo;Request Swap&rdquo; on a shift.</p>
+          <p className={styles.hint}>
+            To request a swap, go to <strong>My Schedule</strong> and click &ldquo;Request Swap&rdquo; on a shift.
+          </p>
           {mySwaps.length === 0
             ? <p className={styles.empty}>No swap requests yet.</p>
             : (
@@ -64,15 +77,15 @@ export default function SwapsPage() {
                       <tr key={s.id}>
                         <td>
                           {iAmRequester
-                            ? <>{s.requesterShiftDate} {s.requesterShiftStart}–{s.requesterShiftEnd} <br/><em>{s.requesterShiftDepartment}</em></>
-                            : <>{s.targetShiftDate} {s.targetShiftStart}–{s.targetShiftEnd} <br/><em>{s.targetShiftDepartment}</em></>
+                            ? <>{s.requesterShiftDate} {s.requesterShiftStart}–{s.requesterShiftEnd}<br /><em>{s.requesterShiftDepartment}</em></>
+                            : <>{s.targetShiftDate} {s.targetShiftStart}–{s.targetShiftEnd}<br /><em>{s.targetShiftDepartment}</em></>
                           }
                         </td>
                         <td>{iAmRequester ? s.targetName : s.requesterName}</td>
                         <td>
                           {iAmRequester
-                            ? <>{s.targetShiftDate} {s.targetShiftStart}–{s.targetShiftEnd} <br/><em>{s.targetShiftDepartment}</em></>
-                            : <>{s.requesterShiftDate} {s.requesterShiftStart}–{s.requesterShiftEnd} <br/><em>{s.requesterShiftDepartment}</em></>
+                            ? <>{s.targetShiftDate} {s.targetShiftStart}–{s.targetShiftEnd}<br /><em>{s.targetShiftDepartment}</em></>
+                            : <>{s.requesterShiftDate} {s.requesterShiftStart}–{s.requesterShiftEnd}<br /><em>{s.requesterShiftDepartment}</em></>
                           }
                         </td>
                         <td><span className={STATUS_CLASS[s.status]}>{STATUS_LABEL[s.status]}</span></td>
@@ -107,10 +120,10 @@ export default function SwapsPage() {
                 <tbody>
                   {pending.map(s => (
                     <tr key={s.id}>
-                      <td>{s.requesterName}<br/><em>{s.requesterRoleName}</em></td>
-                      <td>{s.requesterShiftDate}<br/>{s.requesterShiftStart}–{s.requesterShiftEnd}<br/><em>{s.requesterShiftDepartment}</em></td>
-                      <td>{s.targetName}<br/><em>{s.targetRoleName}</em></td>
-                      <td>{s.targetShiftDate}<br/>{s.targetShiftStart}–{s.targetShiftEnd}<br/><em>{s.targetShiftDepartment}</em></td>
+                      <td>{s.requesterName}<br /><em>{s.requesterRoleName}</em></td>
+                      <td>{s.requesterShiftDate}<br />{s.requesterShiftStart}–{s.requesterShiftEnd}<br /><em>{s.requesterShiftDepartment}</em></td>
+                      <td>{s.targetName}<br /><em>{s.targetRoleName}</em></td>
+                      <td>{s.targetShiftDate}<br />{s.targetShiftStart}–{s.targetShiftEnd}<br /><em>{s.targetShiftDepartment}</em></td>
                       <td>{s.requestedAt?.slice(0, 10)}</td>
                       <td>
                         <button className={styles.approveBtn} onClick={() => approve(s.id)}>Approve</button>

@@ -12,14 +12,14 @@ export default function TimeOffPage() {
   const { user } = useAuth()
   const isManager = user?.manager
 
-  const [myRequests, setMyRequests]     = useState([])
-  const [pending, setPending]           = useState([])
-  const [tab, setTab]                   = useState('my')
-  const [form, setForm]                 = useState(BLANK)
-  const [submitting, setSubmitting]     = useState(false)
-  const [formError, setFormError]       = useState('')
-  const [formSuccess, setFormSuccess]   = useState('')
-  const [error, setError]               = useState('')
+  const [myRequests, setMyRequests]   = useState([])
+  const [pending, setPending]         = useState([])
+  const [tab, setTab]                 = useState('my')
+  const [form, setForm]               = useState(BLANK)
+  const [submitting, setSubmitting]   = useState(false)
+  const [formError, setFormError]     = useState('')
+  const [formSuccess, setFormSuccess] = useState('')
+  const [error, setError]             = useState('')
 
   useEffect(() => { loadMy() }, []) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (isManager && tab === 'pending') loadPending() }, [tab, isManager]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -43,26 +43,33 @@ export default function TimeOffPage() {
   }
 
   const approve = (id) => {
-    timeOffApi.approve(id)
-      .then(() => loadPending())
-      .catch(e => setError(e.message))
+    timeOffApi.approve(id).then(() => loadPending()).catch(e => setError(e.message))
   }
 
   const reject = (id) => {
-    timeOffApi.reject(id)
-      .then(() => loadPending())
-      .catch(e => setError(e.message))
+    timeOffApi.reject(id).then(() => loadPending()).catch(e => setError(e.message))
   }
 
   return (
     <div className={styles.page}>
-      <h2 className={styles.title}>Time Off</h2>
+      <div className={styles.pageHeader}>
+        <h1 className={styles.title}>Time Off</h1>
+      </div>
 
       {isManager && (
         <div className={styles.tabs}>
-          <button className={tab === 'my' ? styles.tabActive : styles.tab} onClick={() => setTab('my')}>My Requests</button>
-          <button className={tab === 'pending' ? styles.tabActive : styles.tab} onClick={() => setTab('pending')}>
-            Approval Queue {pending.length > 0 && <span className={styles.count}>{pending.length}</span>}
+          <button
+            className={tab === 'my' ? styles.tabActive : styles.tab}
+            onClick={() => setTab('my')}
+          >
+            My Requests
+          </button>
+          <button
+            className={tab === 'pending' ? styles.tabActive : styles.tab}
+            onClick={() => setTab('pending')}
+          >
+            Approval Queue
+            {pending.length > 0 && <span className={styles.count}>{pending.length}</span>}
           </button>
         </div>
       )}
@@ -76,11 +83,31 @@ export default function TimeOffPage() {
           {formError   && <div className={styles.formError}>{formError}</div>}
           {formSuccess && <div className={styles.formSuccess}>{formSuccess}</div>}
           <form onSubmit={submit} className={styles.form}>
-            <label>Start date<input type="date" required value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} /></label>
-            <label>End date  <input type="date" required value={form.endDate}   onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} /></label>
-            <label>Reason
-              <textarea required rows={3} maxLength={500} value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))} />
-            </label>
+            <label htmlFor="to-start">Start date</label>
+            <input
+              id="to-start"
+              type="date"
+              required
+              value={form.startDate}
+              onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}
+            />
+            <label htmlFor="to-end">End date</label>
+            <input
+              id="to-end"
+              type="date"
+              required
+              value={form.endDate}
+              onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))}
+            />
+            <label htmlFor="to-reason">Reason</label>
+            <textarea
+              id="to-reason"
+              required
+              rows={3}
+              maxLength={500}
+              value={form.reason}
+              onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
+            />
             <button type="submit" className={styles.submitBtn} disabled={submitting}>
               {submitting ? 'Submitting…' : 'Submit'}
             </button>
@@ -91,7 +118,14 @@ export default function TimeOffPage() {
             ? <p className={styles.empty}>No requests yet.</p>
             : (
               <table className={styles.table}>
-                <thead><tr><th>Dates</th><th>Reason</th><th>Status</th><th>Resolved by</th></tr></thead>
+                <thead>
+                  <tr>
+                    <th>Dates</th>
+                    <th>Reason</th>
+                    <th>Status</th>
+                    <th>Resolved by</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {myRequests.map(r => (
                     <tr key={r.id}>
@@ -115,7 +149,15 @@ export default function TimeOffPage() {
             ? <p className={styles.empty}>No pending requests.</p>
             : (
               <table className={styles.table}>
-                <thead><tr><th>Employee</th><th>Dates</th><th>Reason</th><th>Requested</th><th>Actions</th></tr></thead>
+                <thead>
+                  <tr>
+                    <th>Employee</th>
+                    <th>Dates</th>
+                    <th>Reason</th>
+                    <th>Requested</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {pending.map(r => (
                     <tr key={r.id}>

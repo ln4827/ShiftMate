@@ -2,15 +2,24 @@ import { useState, useEffect, useMemo } from 'react'
 import { shiftApi, departmentApi, employeeApi } from '../api/client'
 import styles from './SchedulePage.module.css'
 
-const toISO  = (d) => d.toISOString().split('T')[0]
-const toMon  = (d) => { const c = new Date(d); c.setDate(d.getDate() - (d.getDay() === 0 ? 6 : d.getDay() - 1)); c.setHours(0,0,0,0); return c }
+const toISO   = (d) => d.toISOString().split('T')[0]
+const toMon   = (d) => { const c = new Date(d); c.setDate(d.getDate() - (d.getDay() === 0 ? 6 : d.getDay() - 1)); c.setHours(0,0,0,0); return c }
 const addDays = (d, n) => { const c = new Date(d); c.setDate(d.getDate() + n); return c }
 const fmtDate = (d) => d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' })
 const fmtRange = (d) => `${fmtDate(d)} – ${fmtDate(addDays(d, 6))}`
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const TODAY_ISO = toISO(new Date())
 
-const BLANK_SHIFT = { departmentId: '', shiftDate: '', startTime: '', endTime: '' }
+// Per-department color palette (cycles through)
+const DEPT_COLORS = ['#01B574', '#4318FF', '#7551FF', '#FF6B35', '#E31A1A', '#39B8FF']
+const deptColor = (deptId) => DEPT_COLORS[(deptId - 1) % DEPT_COLORS.length] || DEPT_COLORS[0]
+
+function initials(name = '') {
+  return name.split(' ').map(p => p[0] || '').join('').slice(0, 2).toUpperCase()
+}
+
+const BLANK_SHIFT  = { departmentId: '', shiftDate: '', startTime: '', endTime: '' }
 const BLANK_ASSIGN = { employeeId: '', roleId: '' }
 
 export default function SchedulePage() {
@@ -23,8 +32,8 @@ export default function SchedulePage() {
   const [error, setError]         = useState('')
 
   // Modals
-  const [shiftModal, setShiftModal]   = useState(null)   // null | { mode:'create'|'edit', data, shiftId? }
-  const [assignModal, setAssignModal] = useState(null)   // null | { shiftId }
+  const [shiftModal, setShiftModal]   = useState(null)
+  const [assignModal, setAssignModal] = useState(null)
   const [assignForm, setAssignForm]   = useState(BLANK_ASSIGN)
   const [formData, setFormData]       = useState(BLANK_SHIFT)
   const [submitting, setSubmitting]   = useState(false)
@@ -47,20 +56,47 @@ export default function SchedulePage() {
       .finally(() => setLoading(false))
   }
 
-  // Group shifts by ISO date
-  const byDay = useMemo(() => {
-    const map = {}
-    for (let i = 0; i < 7; i++) {
-      map[toISO(addDays(weekStart, i))] = []
-    }
-    shifts.forEach(s => { if (map[s.shiftDate]) map[s.shiftDate].push(s) })
-    return map
-  }, [shifts, weekStart])
+  // Weekday ISO dates
+  const weekDates = useMemo(() =>
+    Array.from({ length: 7 }, (_, i) => toISO(addDays(weekStart, i))),
+    [weekStart]
+  )
 
-  // ── Shift CRUD ────────────────────────────────────────────────────────────
+  // Active employees who appear in any shift this week, plus all active employees
+  const activeEmps = useMemo(() =>
+    employees.filter(e => e.active),
+    [employees]
+  )
 
-  const openCreate = () => {
-    setFormData({ ...BLANK_SHIFT, shiftDate: toISO(weekStart) })
+  // Build map: employeeId → { [date]: [shift, ...] }
+  // Also collect unassigned shifts (no assignments at all)
+  const { empShiftMap, unassignedByDay } = useMemo(() => {
+    const empMap = {}
+    activeEmps.forEach(e => {
+      empMap[e.id] = {}
+      weekDates.forEach(d => { empMap[e.id][d] = [] })
+    })
+    const unassigned = {}
+    weekDates.forEach(d => { unassigned[d] = [] })
+
+    shifts.forEach(s => {
+      if (s.assignments.length === 0) {
+        if (unassigned[s.shiftDate]) unassigned[s.shiftDate].push(s)
+        return
+      }
+      s.assignments.forEach(a => {
+        if (empMap[a.employeeId] && empMap[a.employeeId][s.shiftDate] !== undefined) {
+          empMap[a.employeeId][s.shiftDate].push(s)
+        }
+      })
+    })
+    return { empShiftMap: empMap, unassignedByDay: unassigned }
+  }, [shifts, weekDates, activeEmps])
+
+  // ── Shift CRUD ──────────────────────────────────────────────────────────────
+
+  const openCreate = (prefillDate) => {
+    setFormData({ ...BLANK_SHIFT, shiftDate: prefillDate || toISO(weekStart) })
     setModalError('')
     setShiftModal({ mode: 'create' })
   }
@@ -108,7 +144,7 @@ export default function SchedulePage() {
     call.then(loadShifts).catch(e => setError(e.message))
   }
 
-  // ── Assign ────────────────────────────────────────────────────────────────
+  // ── Assign ──────────────────────────────────────────────────────────────────
 
   const openAssign = (shiftId) => {
     setAssignForm(BLANK_ASSIGN)
@@ -135,130 +171,226 @@ export default function SchedulePage() {
       .catch(e => setError(e.message))
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className={styles.page}>
+      {/* Toolbar */}
       <div className={styles.toolbar}>
-        <button className={styles.weekBtn} onClick={() => setWeekStart(d => addDays(d, -7))}>← Prev</button>
+        <button className={styles.weekBtn} onClick={() => setWeekStart(d => addDays(d, -7))}>&#8592; Prev</button>
         <span className={styles.weekLabel}>{fmtRange(weekStart)}</span>
-        <button className={styles.weekBtn} onClick={() => setWeekStart(d => addDays(d, 7))}>Next →</button>
-        <button className={styles.newBtn} onClick={openCreate}>+ New Shift</button>
+        <button className={styles.weekBtn} onClick={() => setWeekStart(d => addDays(d, 7))}>Next &#8594;</button>
+        <div className={styles.toolbarSpacer} />
+        <button className={styles.newBtn} onClick={() => openCreate()}>+ Add Shift</button>
       </div>
 
       {error && <div className={styles.errorBanner}>{error}</div>}
       {loading && <div className={styles.loading}>Loading…</div>}
 
-      <div className={styles.grid}>
-        {Object.entries(byDay).map(([date, dayShifts], i) => (
-          <div key={date} className={styles.dayCol}>
-            <div className={styles.dayHeader}>{DAYS[i]} {date.slice(5)}</div>
-            {dayShifts.length === 0 && <div className={styles.empty}>—</div>}
-            {dayShifts.map(s => (
-              <div key={s.id} className={`${styles.card} ${s.published ? styles.published : styles.draft}`}>
-                <div className={styles.cardTop}>
-                  <span className={styles.dept}>{s.departmentName}</span>
-                  <span className={`${styles.badge} ${s.published ? styles.badgePub : styles.badgeDraft}`}>
-                    {s.published ? 'Published' : 'Draft'}
-                  </span>
-                </div>
-                <div className={styles.time}>{s.startTime} – {s.endTime}</div>
+      {/* Grid */}
+      <div className={styles.gridWrapper}>
+        <div className={styles.grid}>
 
-                {s.coverageRequirements.length > 0 && (
-                  <div className={`${styles.coverage} ${s.coverageMet ? styles.covMet : styles.covUnmet}`}>
-                    {s.coverageMet ? '✓ Coverage met' : '⚠ Coverage unmet'}
-                  </div>
-                )}
+          {/* Header row */}
+          <div className={styles.headerNameCell} />
+          {weekDates.map((date, i) => {
+            const isToday = date === TODAY_ISO
+            return (
+              <div key={date} className={styles.headerCell}>
+                <span className={styles.dayName}>{DAYS[i]}</span>
+                {isToday
+                  ? <span className={styles.dayNumToday}>{date.slice(8)}</span>
+                  : <span className={styles.dayNum}>{date.slice(8)}</span>
+                }
+              </div>
+            )
+          })}
 
-                {s.assignments.length > 0 && (
-                  <ul className={styles.assignList}>
-                    {s.assignments.map(a => (
-                      <li key={a.id} className={styles.assignItem}>
-                        <span>{a.employeeName} <em>({a.roleName})</em></span>
-                        <button
-                          className={styles.removeBtn}
-                          onClick={() => unassign(s.id, a.id)}
-                          title="Remove assignment"
-                        >✕</button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
-                <div className={styles.actions}>
-                  <button className={styles.actBtn} onClick={() => openEdit(s)}>Edit</button>
-                  <button className={styles.actBtn} onClick={() => openAssign(s.id)}>Assign</button>
-                  <button className={styles.actBtn} onClick={() => togglePublish(s)}>
-                    {s.published ? 'Unpublish' : 'Publish'}
-                  </button>
-                  <button className={`${styles.actBtn} ${styles.delBtn}`} onClick={() => deleteShift(s.id)}>Delete</button>
+          {/* Employee rows */}
+          {activeEmps.map(emp => (
+            <>
+              {/* Employee name cell */}
+              <div key={`emp-${emp.id}`} className={styles.empCell}>
+                <div className={styles.empAvatar}>{initials(`${emp.firstName} ${emp.lastName}`)}</div>
+                <div className={styles.empInfo}>
+                  <div className={styles.empName}>{emp.firstName} {emp.lastName}</div>
+                  {emp.roles?.[0] && <span className={styles.empRole}>{emp.roles[0].name}</span>}
                 </div>
               </div>
-            ))}
-          </div>
-        ))}
+
+              {/* Day cells for this employee */}
+              {weekDates.map(date => {
+                const dayShifts = empShiftMap[emp.id]?.[date] || []
+                // Deduplicate shifts (employee may have multiple assignments in same shift)
+                const uniqueShifts = [...new Map(dayShifts.map(s => [s.id, s])).values()]
+                return (
+                  <div key={`${emp.id}-${date}`} className={styles.dayCell}>
+                    {uniqueShifts.length === 0 && (
+                      <button
+                        className={styles.addBtn}
+                        onClick={() => openCreate(date)}
+                        title="Add shift"
+                      >+</button>
+                    )}
+                    {uniqueShifts.map(s => (
+                      <ShiftBlock
+                        key={s.id}
+                        shift={s}
+                        onEdit={openEdit}
+                        onAssign={openAssign}
+                        onDelete={deleteShift}
+                        onTogglePublish={togglePublish}
+                        onUnassign={unassign}
+                      />
+                    ))}
+                  </div>
+                )
+              })}
+            </>
+          ))}
+
+          {/* Unassigned shifts row */}
+          {shifts.some(s => s.assignments.length === 0) && (
+            <>
+              <div className={styles.empCell}>
+                <div className={styles.empInfo}>
+                  <div className={styles.empName} style={{ color: '#A3AED0', fontStyle: 'italic' }}>Unassigned</div>
+                </div>
+              </div>
+              {weekDates.map(date => {
+                const dayShifts = unassignedByDay[date] || []
+                return (
+                  <div key={`unassigned-${date}`} className={styles.dayCell}>
+                    {dayShifts.length === 0 && (
+                      <button
+                        className={styles.addBtn}
+                        onClick={() => openCreate(date)}
+                        title="Add shift"
+                      >+</button>
+                    )}
+                    {dayShifts.map(s => (
+                      <ShiftBlock
+                        key={s.id}
+                        shift={s}
+                        onEdit={openEdit}
+                        onAssign={openAssign}
+                        onDelete={deleteShift}
+                        onTogglePublish={togglePublish}
+                        onUnassign={unassign}
+                      />
+                    ))}
+                  </div>
+                )
+              })}
+            </>
+          )}
+
+        </div>
       </div>
 
       {/* Shift modal */}
       {shiftModal && (
-        <div className={styles.overlay} onClick={() => setShiftModal(null)}>
-          <div className={styles.modal} onClick={e => e.stopPropagation()}>
-            <h3>{shiftModal.mode === 'create' ? 'New Shift' : 'Edit Shift'}</h3>
+        <div className={styles.overlay}>
+          <dialog open className={styles.modal} aria-labelledby="shift-modal-title">
+            <div className={styles.modalHeader}>
+              <h3 id="shift-modal-title">{shiftModal.mode === 'create' ? 'New Shift' : 'Edit Shift'}</h3>
+              <button className={styles.modalClose} onClick={() => setShiftModal(null)}>&#x2715;</button>
+            </div>
             {modalError && <div className={styles.modalError}>{modalError}</div>}
             <form onSubmit={submitShift} className={styles.form}>
-              <label>Department
-                <select required value={formData.departmentId} onChange={e => setFormData(f => ({ ...f, departmentId: e.target.value }))}>
-                  <option value="">Select…</option>
-                  {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                </select>
-              </label>
-              <label>Date
-                <input type="date" required value={formData.shiftDate} onChange={e => setFormData(f => ({ ...f, shiftDate: e.target.value }))} />
-              </label>
-              <label>Start
-                <input type="time" required value={formData.startTime} onChange={e => setFormData(f => ({ ...f, startTime: e.target.value }))} />
-              </label>
-              <label>End
-                <input type="time" required value={formData.endTime} onChange={e => setFormData(f => ({ ...f, endTime: e.target.value }))} />
-              </label>
+              <label htmlFor="shift-dept">Department</label>
+              <select id="shift-dept" required value={formData.departmentId} onChange={e => setFormData(f => ({ ...f, departmentId: e.target.value }))}>
+                <option value="">Select…</option>
+                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+              <label htmlFor="shift-date">Date</label>
+              <input id="shift-date" type="date" required value={formData.shiftDate} onChange={e => setFormData(f => ({ ...f, shiftDate: e.target.value }))} />
+              <label htmlFor="shift-start">Start time</label>
+              <input id="shift-start" type="time" required value={formData.startTime} onChange={e => setFormData(f => ({ ...f, startTime: e.target.value }))} />
+              <label htmlFor="shift-end">End time</label>
+              <input id="shift-end" type="time" required value={formData.endTime} onChange={e => setFormData(f => ({ ...f, endTime: e.target.value }))} />
               <div className={styles.modalFooter}>
                 <button type="button" onClick={() => setShiftModal(null)}>Cancel</button>
                 <button type="submit" disabled={submitting}>{submitting ? 'Saving…' : 'Save'}</button>
               </div>
             </form>
-          </div>
+          </dialog>
         </div>
       )}
 
       {/* Assign modal */}
       {assignModal && (
-        <div className={styles.overlay} onClick={() => setAssignModal(null)}>
-          <div className={styles.modal} onClick={e => e.stopPropagation()}>
-            <h3>Assign Employee</h3>
+        <div className={styles.overlay}>
+          <dialog open className={styles.modal} aria-labelledby="assign-modal-title">
+            <div className={styles.modalHeader}>
+              <h3 id="assign-modal-title">Assign Employee</h3>
+              <button className={styles.modalClose} onClick={() => setAssignModal(null)}>&#x2715;</button>
+            </div>
             {modalError && <div className={styles.modalError}>{modalError}</div>}
             <form onSubmit={submitAssign} className={styles.form}>
-              <label>Employee
-                <select required value={assignForm.employeeId} onChange={e => setAssignForm(f => ({ ...f, employeeId: e.target.value }))}>
-                  <option value="">Select…</option>
-                  {employees.filter(e => e.active).map(e => (
-                    <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>
-                  ))}
-                </select>
-              </label>
-              <label>Role
-                <select required value={assignForm.roleId} onChange={e => setAssignForm(f => ({ ...f, roleId: e.target.value }))}>
-                  <option value="">Select…</option>
-                  {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                </select>
-              </label>
+              <label htmlFor="assign-emp">Employee</label>
+              <select id="assign-emp" required value={assignForm.employeeId} onChange={e => setAssignForm(f => ({ ...f, employeeId: e.target.value }))}>
+                <option value="">Select…</option>
+                {employees.filter(e => e.active).map(e => (
+                  <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>
+                ))}
+              </select>
+              <label htmlFor="assign-role">Role</label>
+              <select id="assign-role" required value={assignForm.roleId} onChange={e => setAssignForm(f => ({ ...f, roleId: e.target.value }))}>
+                <option value="">Select…</option>
+                {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+              </select>
               <div className={styles.modalFooter}>
                 <button type="button" onClick={() => setAssignModal(null)}>Cancel</button>
                 <button type="submit" disabled={submitting}>{submitting ? 'Assigning…' : 'Assign'}</button>
               </div>
             </form>
-          </div>
+          </dialog>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Shift block component ────────────────────────────────────────────────────
+
+function ShiftBlock({ shift: s, onEdit, onAssign, onDelete, onTogglePublish, onUnassign }) {
+  const color = deptColor(s.departmentId)
+  return (
+    <div
+      className={styles.shiftBlock}
+      style={{ background: color }}
+    >
+      <span className={styles.shiftTime}>{s.startTime} – {s.endTime}</span>
+      <span className={styles.shiftDept}>{s.departmentName}</span>
+
+      {!s.published && <span className={styles.draftPill}>Draft</span>}
+
+      {s.coverageRequirements?.length > 0 && (
+        <span className={styles.coveragePill}>
+          {s.coverageMet ? '✓ Coverage' : '⚠ Unmet'}
+        </span>
+      )}
+
+      {s.assignments.length > 0 && (
+        <div className={styles.shiftAssignees}>
+          {s.assignments.map(a => (
+            <div key={a.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span>{a.employeeName}</span>
+              <button className={styles.removeBtn} onClick={() => onUnassign(s.id, a.id)} title="Remove">&#x2715;</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className={styles.shiftActions}>
+        <button className={styles.actBtn} onClick={() => onEdit(s)}>Edit</button>
+        <button className={styles.actBtn} onClick={() => onAssign(s.id)}>Assign</button>
+        <button className={styles.actBtn} onClick={() => onTogglePublish(s)}>
+          {s.published ? 'Unpublish' : 'Publish'}
+        </button>
+        <button className={`${styles.actBtn} ${styles.delBtn}`} onClick={() => onDelete(s.id)}>Del</button>
+      </div>
     </div>
   )
 }

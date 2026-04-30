@@ -9,6 +9,10 @@ const addDays = (d, n) => { const c = new Date(d); c.setDate(d.getDate() + n); r
 const fmtDate = (d) => d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' })
 const fmtRange = (d) => `${fmtDate(d)} – ${fmtDate(addDays(d, 6))}`
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const TODAY_ISO = toISO(new Date())
+
+const DEPT_COLORS = ['#01B574', '#4318FF', '#7551FF', '#FF6B35', '#E31A1A', '#39B8FF']
+const deptColor = (deptId) => DEPT_COLORS[(deptId - 1) % DEPT_COLORS.length] || DEPT_COLORS[0]
 
 export default function MySchedulePage() {
   const { user } = useAuth()
@@ -19,7 +23,7 @@ export default function MySchedulePage() {
   const [error, setError]               = useState('')
 
   // Swap modal state
-  const [swapModal, setSwapModal] = useState(null)   // { myAssignmentId, myShift }
+  const [swapModal, setSwapModal] = useState(null)
   const [swapTarget, setSwapTarget] = useState('')
   const [swapError, setSwapError]   = useState('')
   const [swapping, setSwapping]     = useState(false)
@@ -38,14 +42,18 @@ export default function MySchedulePage() {
       .finally(() => setLoading(false))
   }
 
+  const weekDates = useMemo(() =>
+    Array.from({ length: 7 }, (_, i) => toISO(addDays(weekStart, i))),
+    [weekStart]
+  )
+
   const myByDay = useMemo(() => {
     const map = {}
-    for (let i = 0; i < 7; i++) map[toISO(addDays(weekStart, i))] = []
+    weekDates.forEach(d => { map[d] = [] })
     myShifts.forEach(s => { if (map[s.shiftDate]) map[s.shiftDate].push(s) })
     return map
-  }, [myShifts, weekStart])
+  }, [myShifts, weekDates])
 
-  // Other employees' assignments the current user can swap with
   const otherAssignments = useMemo(() => {
     const myId = user?.id
     return allPublished.flatMap(s =>
@@ -77,60 +85,89 @@ export default function MySchedulePage() {
 
   return (
     <div className={styles.page}>
+      {/* Toolbar */}
       <div className={styles.toolbar}>
-        <button className={styles.weekBtn} onClick={() => setWeekStart(d => addDays(d, -7))}>← Prev</button>
+        <button className={styles.weekBtn} onClick={() => setWeekStart(d => addDays(d, -7))}>&#8592; Prev</button>
         <span className={styles.weekLabel}>{fmtRange(weekStart)}</span>
-        <button className={styles.weekBtn} onClick={() => setWeekStart(d => addDays(d, 7))}>Next →</button>
+        <button className={styles.weekBtn} onClick={() => setWeekStart(d => addDays(d, 7))}>Next &#8594;</button>
       </div>
 
       {error && <div className={styles.errorBanner}>{error}</div>}
       {loading && <div className={styles.loading}>Loading…</div>}
 
-      <div className={styles.grid}>
-        {Object.entries(myByDay).map(([date, dayShifts], i) => (
-          <div key={date} className={styles.dayCol}>
-            <div className={styles.dayHeader}>{DAYS[i]} {date.slice(5)}</div>
-            {dayShifts.length === 0 && <div className={styles.empty}>—</div>}
-            {dayShifts.map(s => {
-              const myAssId = myAssignmentId(s)
-              const myRole  = s.assignments.find(a => a.employeeId === user?.id)?.roleName
-              return (
-                <div key={s.id} className={styles.card}>
-                  <div className={styles.dept}>{s.departmentName}</div>
-                  <div className={styles.time}>{s.startTime} – {s.endTime}</div>
-                  {myRole && <div className={styles.role}>Role: <em>{myRole}</em></div>}
-                  {myAssId && (
-                    <button className={styles.swapBtn} onClick={() => openSwap(myAssId, s)}>
-                      Request Swap
-                    </button>
-                  )}
+      <div className={styles.gridWrapper}>
+        <div className={styles.grid}>
+          {weekDates.map((date, i) => {
+            const dayShifts = myByDay[date] || []
+            const isToday = date === TODAY_ISO
+            return (
+              <div key={date} className={styles.dayCol}>
+                <div className={styles.dayHeader}>
+                  <span className={styles.dayHeaderName}>{DAYS[i]}</span>
+                  {isToday
+                    ? <span className={styles.dayHeaderDateToday}>{date.slice(8)}</span>
+                    : <span className={styles.dayHeaderDate}>{date.slice(8)}</span>
+                  }
                 </div>
-              )
-            })}
-          </div>
-        ))}
+
+                {dayShifts.length === 0 && (
+                  <div className={styles.empty}>No shifts</div>
+                )}
+
+                {dayShifts.map(s => {
+                  const myAssId = myAssignmentId(s)
+                  const myRole  = s.assignments.find(a => a.employeeId === user?.id)?.roleName
+                  const color   = deptColor(s.departmentId)
+                  return (
+                    <div key={s.id} className={styles.card}>
+                      <div className={styles.shiftColorBar} style={{ background: color }} />
+                      <div className={styles.dept}>{s.departmentName}</div>
+                      <div className={styles.time}>{s.startTime} – {s.endTime}</div>
+                      {myRole && (
+                        <div className={styles.role}>Role: <em>{myRole}</em></div>
+                      )}
+                      {myAssId && (
+                        <button className={styles.swapBtn} onClick={() => openSwap(myAssId, s)}>
+                          Request Swap
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
       </div>
 
+      {/* Swap modal */}
       {swapModal && (
-        <div className={styles.overlay} onClick={() => setSwapModal(null)}>
-          <div className={styles.modal} onClick={e => e.stopPropagation()}>
-            <h3>Request Swap</h3>
+        <div className={styles.overlay}>
+          <dialog open className={styles.modal} aria-labelledby="swap-modal-title">
+            <div className={styles.modalHeader}>
+              <h3 id="swap-modal-title">Request Swap</h3>
+              <button className={styles.modalClose} onClick={() => setSwapModal(null)}>&#x2715;</button>
+            </div>
             <p className={styles.swapInfo}>
               Your shift: <strong>{swapModal.myShift.shiftDate}</strong> —&nbsp;
               {swapModal.myShift.departmentName}, {swapModal.myShift.startTime}–{swapModal.myShift.endTime}
             </p>
             {swapError && <div className={styles.modalError}>{swapError}</div>}
             <form onSubmit={submitSwap} className={styles.form}>
-              <label>Swap with
-                <select required value={swapTarget} onChange={e => setSwapTarget(e.target.value)}>
-                  <option value="">Select a colleague&apos;s shift…</option>
-                  {otherAssignments.map(a => (
-                    <option key={a.id} value={a.id}>
-                      {a.employeeName} — {a.shiftDate} {a.shiftStart}–{a.shiftEnd} ({a.dept})
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <label htmlFor="swap-target-select">Swap with</label>
+              <select
+                id="swap-target-select"
+                required
+                value={swapTarget}
+                onChange={e => setSwapTarget(e.target.value)}
+              >
+                <option value="">Select a colleague&apos;s shift…</option>
+                {otherAssignments.map(a => (
+                  <option key={a.id} value={a.id}>
+                    {a.employeeName} — {a.shiftDate} {a.shiftStart}–{a.shiftEnd} ({a.dept})
+                  </option>
+                ))}
+              </select>
               {otherAssignments.length === 0 && (
                 <p className={styles.noTargets}>No other published assignments this week.</p>
               )}
@@ -141,7 +178,7 @@ export default function MySchedulePage() {
                 </button>
               </div>
             </form>
-          </div>
+          </dialog>
         </div>
       )}
     </div>

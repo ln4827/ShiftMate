@@ -73,17 +73,21 @@ export default function NavBar() {
     })
   }
 
+  const initials = user
+    ? `${(user.firstName || '')[0] || ''}${(user.lastName || '')[0] || ''}`.toUpperCase()
+    : '?'
+
   return (
     <nav className={styles.nav}>
       <span className={styles.brand}>ShiftMate</span>
 
       <div className={styles.links}>
-        {isManager && <NavLink to="/schedule" className={navClass}>Schedule</NavLink>}
-        <NavLink to="/my-schedule" className={navClass}>My Schedule</NavLink>
-        {isManager && <NavLink to="/employees" className={navClass}>Employees</NavLink>}
-        <NavLink to="/time-off" className={navClass}>Time Off</NavLink>
-        <NavLink to="/swaps" className={navClass}>Swaps</NavLink>
-        {isManager && <NavLink to="/reports" className={navClass}>Reports</NavLink>}
+        {isManager && <NavLink to="/schedule"    className={navClass}>Schedule</NavLink>}
+        <NavLink to="/my-schedule"               className={navClass}>My Schedule</NavLink>
+        {isManager && <NavLink to="/employees"   className={navClass}>Employees</NavLink>}
+        <NavLink to="/time-off"                  className={navClass}>Time Off</NavLink>
+        <NavLink to="/swaps"                     className={navClass}>Swaps</NavLink>
+        {isManager && <NavLink to="/reports"     className={navClass}>Reports</NavLink>}
       </div>
 
       <div className={styles.right}>
@@ -121,7 +125,11 @@ export default function NavBar() {
           )}
         </div>
 
-        <span className={styles.userLabel}>{user?.firstName}</span>
+        {/* User avatar with initials */}
+        <div className={styles.avatar} title={user ? `${user.firstName} ${user.lastName}` : ''}>
+          {initials}
+        </div>
+
         <button className={styles.logoutBtn} onClick={logout}>Logout</button>
       </div>
     </nav>

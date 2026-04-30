@@ -3,6 +3,8 @@ package com.shiftmate.entity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalTime;
 
@@ -34,6 +36,7 @@ public class Availability {
     /** ISO-8601 day of week: 1 = Monday through 7 = Sunday. */
     @NotNull
     @Min(1) @Max(7)
+    @JdbcTypeCode(SqlTypes.TINYINT)
     @Column(name = "day_of_week", nullable = false)
     private Integer dayOfWeek;
 
