@@ -203,3 +203,89 @@
   transition: background 0.15s;
 }
 .rejectBtn:hover { background: #fecaca; }
+
+.addBtn {
+  background: #4318FF;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.modalOverlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: #fff;
+  padding: 24px;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 450px;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.field {
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1B2559;
+}
+
+.field select {
+  padding: 10px;
+  border: 1px solid #E9EDF7;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.submitBtn {
+  background: #4318FF;
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.cancelBtn {
+  background: #fff;
+  border: 1px solid #E9EDF7;
+  padding: 10px 20px;
+  border-radius: 10px;
+}
