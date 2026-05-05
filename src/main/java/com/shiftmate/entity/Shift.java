@@ -3,6 +3,7 @@ package com.shiftmate.entity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
+import org.hibernate.annotations.BatchSize;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -67,6 +68,7 @@ public class Shift {
     @OneToMany(mappedBy = "shift", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ShiftAssignment> assignments = new ArrayList<>();
 
+    @BatchSize(size = 50)
     @OneToMany(mappedBy = "shift", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ShiftCoverageRequirement> coverageRequirements = new ArrayList<>();
 

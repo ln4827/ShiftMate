@@ -35,8 +35,6 @@ public interface ShiftRepository extends JpaRepository<Shift, Long> {
             LEFT JOIN FETCH s.assignments sa
             LEFT JOIN FETCH sa.employee e
             LEFT JOIN FETCH sa.role r
-            LEFT JOIN FETCH s.coverageRequirements cr
-            LEFT JOIN FETCH cr.role crRole
             WHERE d.restaurant.id = :restaurantId
               AND s.shiftDate BETWEEN :from AND :to
             ORDER BY s.shiftDate, s.startTime
@@ -61,8 +59,6 @@ public interface ShiftRepository extends JpaRepository<Shift, Long> {
             LEFT JOIN FETCH s.assignments sa
             LEFT JOIN FETCH sa.employee
             LEFT JOIN FETCH sa.role
-            LEFT JOIN FETCH s.coverageRequirements cr
-            LEFT JOIN FETCH cr.role
             WHERE s.id IN (
                 SELECT s2.id FROM Shift s2
                 JOIN s2.assignments a
@@ -116,8 +112,6 @@ public interface ShiftRepository extends JpaRepository<Shift, Long> {
             JOIN FETCH s.department d
             JOIN FETCH d.restaurant
             JOIN FETCH s.createdBy
-            LEFT JOIN FETCH s.coverageRequirements cr
-            LEFT JOIN FETCH cr.role
             LEFT JOIN FETCH s.assignments sa
             LEFT JOIN FETCH sa.role
             LEFT JOIN FETCH sa.employee
@@ -137,8 +131,6 @@ public interface ShiftRepository extends JpaRepository<Shift, Long> {
             LEFT JOIN FETCH s.assignments sa
             LEFT JOIN FETCH sa.employee e
             LEFT JOIN FETCH sa.role r
-            LEFT JOIN FETCH s.coverageRequirements cr
-            LEFT JOIN FETCH cr.role crRole
             WHERE d.restaurant.id = :restaurantId
               AND s.shiftDate BETWEEN :from AND :to
               AND s.isPublished = true

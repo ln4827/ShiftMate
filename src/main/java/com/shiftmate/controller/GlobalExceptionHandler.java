@@ -83,6 +83,19 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles bad request parameters such as malformed ISO week strings.
+     *
+     * @param ex the exception
+     * @return a 400 response with the error message
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Map<String, String> handleBadArgument(IllegalArgumentException ex) {
+        log.warn("Bad request argument: {}", ex.getMessage());
+        return Map.of("error", ex.getMessage());
+    }
+
+    /**
      * Catch-all handler for unexpected exceptions. Logs the full stack trace and
      * returns a generic error message to avoid leaking implementation details.
      *
