@@ -59,6 +59,8 @@ public class AuthController {
             ShiftMateUserDetails principal = (ShiftMateUserDetails) auth.getPrincipal();
             return ResponseEntity.ok(Map.of(
                     "employeeId", principal.getEmployeeId(),
+                    "firstName",  principal.getFirstName(),
+                    "lastName",   principal.getLastName(),
                     "email",      principal.getEmail(),
                     "manager",    principal.isManager()
             ));
@@ -101,6 +103,8 @@ public class AuthController {
         ShiftMateUserDetails principal = (ShiftMateUserDetails) auth.getPrincipal();
         return ResponseEntity.ok(Map.of(
                 "employeeId", principal.getEmployeeId(),
+                "firstName",  principal.getFirstName(),
+                "lastName",   principal.getLastName(),
                 "email",      principal.getEmail(),
                 "manager",    principal.isManager()
         ));

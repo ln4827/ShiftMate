@@ -10,9 +10,9 @@ export default function NavBar() {
   const navigate = useNavigate()
   const isManager = user?.manager
 
-  const [unread, setUnread]         = useState(0)
-  const [notifications, setNotifs]  = useState([])
-  const [bellOpen, setBellOpen]     = useState(false)
+  const [unread, setUnread] = useState(0)
+  const [notifications, setNotifs] = useState([])
+  const [bellOpen, setBellOpen] = useState(false)
   const bellRef = useRef(null)
 
   // Poll unread count every 30 s
@@ -21,7 +21,7 @@ export default function NavBar() {
     const poll = () => {
       notificationApi.unreadCount()
         .then(d => { if (!cancelled) setUnread(d.count) })
-        .catch(() => {})
+        .catch(() => { })
     }
     poll()
     const id = setInterval(poll, 30_000)
@@ -43,7 +43,7 @@ export default function NavBar() {
     if (!bellOpen) {
       notificationApi.list()
         .then(setNotifs)
-        .catch(() => {})
+        .catch(() => { })
     }
     setBellOpen(v => !v)
   }
@@ -54,7 +54,7 @@ export default function NavBar() {
         setUnread(0)
         setNotifs(ns => ns.map(n => ({ ...n, read: true })))
       })
-      .catch(() => {})
+      .catch(() => { })
   }
 
   const markOne = (id) => {
@@ -63,7 +63,7 @@ export default function NavBar() {
         setNotifs(ns => ns.map(n => n.id === id ? { ...n, read: true } : n))
         setUnread(u => Math.max(0, u - 1))
       })
-      .catch(() => {})
+      .catch(() => { })
   }
 
   const handleNotifClick = (n) => {
@@ -106,12 +106,12 @@ export default function NavBar() {
       <span className={styles.brand}>ShiftMate</span>
 
       <div className={styles.links}>
-        {isManager && <NavLink to="/schedule"    className={navClass}>Schedule</NavLink>}
-        <NavLink to="/my-schedule"               className={navClass}>My Schedule</NavLink>
-        {isManager && <NavLink to="/employees"   className={navClass}>Employees</NavLink>}
-        <NavLink to="/time-off"                  className={navClass}>Time Off</NavLink>
-        <NavLink to="/swaps"                     className={navClass}>Swaps</NavLink>
-        {isManager && <NavLink to="/reports"     className={navClass}>Reports</NavLink>}
+        {isManager && <NavLink to="/schedule" className={navClass}>Schedule</NavLink>}
+        <NavLink to="/my-schedule" className={navClass}>My Schedule</NavLink>
+        {isManager && <NavLink to="/employees" className={navClass}>Employees</NavLink>}
+        <NavLink to="/time-off" className={navClass}>Time Off</NavLink>
+        <NavLink to="/swaps" className={navClass}>Swaps</NavLink>
+        {isManager && <NavLink to="/reports" className={navClass}>Reports</NavLink>}
       </div>
 
       <div className={styles.right}>
@@ -150,8 +150,15 @@ export default function NavBar() {
         </div>
 
         {/* User avatar with initials */}
-        <div className={styles.avatar} title={user ? `${user.firstName} ${user.lastName}` : ''}>
-          {initials}
+        <div className={styles.userInfo}>
+          <div className={styles.avatar}>
+            {initials}
+          </div>
+          {user && (
+            <span className={styles.userName}>
+              {user.firstName} {user.lastName}
+            </span>
+          )}
         </div>
 
         <button className={styles.logoutBtn} onClick={logout}>Logout</button>

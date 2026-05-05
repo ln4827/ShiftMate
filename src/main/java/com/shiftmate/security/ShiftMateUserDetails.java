@@ -25,6 +25,8 @@ public class ShiftMateUserDetails implements UserDetails {
 
     private final Long employeeId;
     private final Long restaurantId;
+    private final String firstName;
+    private final String lastName;
     private final String email;
     private final String passwordHash;
     private final boolean isManager;
@@ -41,6 +43,8 @@ public class ShiftMateUserDetails implements UserDetails {
     public ShiftMateUserDetails(Employee employee) {
         this.employeeId   = employee.getId();
         this.restaurantId = employee.getRestaurant().getId();
+        this.firstName    = employee.getFirstName();
+        this.lastName     = employee.getLastName();
         this.email        = employee.getEmail();
         this.passwordHash = employee.getPasswordHash();
         this.isManager    = employee.isManager();
