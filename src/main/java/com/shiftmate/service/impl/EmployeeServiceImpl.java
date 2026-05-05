@@ -27,13 +27,18 @@ import java.util.List;
 /**
  * Default implementation of {@link EmployeeService}.
  *
- * <p>Read operations are annotated with {@code @Transactional(readOnly = true)} so
+ * <p>
+ * Read operations are annotated with {@code @Transactional(readOnly = true)} so
  * Hibernate skips dirty-checking, reducing overhead on SELECT-only paths. Write
  * operations use a full read-write transaction.
  *
- * <p>The {@link Employee#getVersion()} field is managed automatically by Hibernate.
- * Concurrent modifications to the same employee record cause the second writer to
- * receive an {@link jakarta.persistence.OptimisticLockException}, surfaced to the
+ * <p>
+ * The {@link Employee#getVersion()} field is managed automatically by
+ * Hibernate.
+ * Concurrent modifications to the same employee record cause the second writer
+ * to
+ * receive an {@link jakarta.persistence.OptimisticLockException}, surfaced to
+ * the
  * caller as {@link org.springframework.dao.OptimisticLockingFailureException}.
  */
 @Slf4j
@@ -50,8 +55,9 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Override
     @Transactional(readOnly = true)
     public List<EmployeeResponse> findAll(Long restaurantId) {
-        validateRestaurantExists(restaurantId);
-        return employeeRepository.findActiveByRestaurantIdWithRoles(restaurantId)
+        log.info("Fetching all employees for restaurant: {}", restaurantId);
+
+        return employeeRepository.findAllByRestaurantIdWithRoles(restaurantId)
                 .stream()
                 .map(EmployeeResponse::from)
                 .toList();
@@ -107,14 +113,14 @@ public class EmployeeServiceImpl implements EmployeeService {
 
     @Override
     @Transactional
-    public EmployeeResponse update(Long restaurantId, Long employeeId,
-                                   UpdateEmployeeRequest request) {
+    public EmployeeResponse update(Long restaurantId, Long employeeId, UpdateEmployeeRequest request) {
+        // 1. Load employee (findByIdWithRoles ensures the roles list is initialized)
         Employee employee = resolveEmployee(restaurantId, employeeId);
 
+        // 2. Standard updates
         if (!employee.getEmail().equalsIgnoreCase(request.getEmail())
                 && employeeRepository.existsByEmail(request.getEmail())) {
-            throw new BusinessRuleException(
-                    "Email '" + request.getEmail() + "' is already in use.");
+            throw new BusinessRuleException("Email '" + request.getEmail() + "' is already in use.");
         }
 
         employee.setFirstName(request.getFirstName());
@@ -126,23 +132,50 @@ public class EmployeeServiceImpl implements EmployeeService {
             employee.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         }
 
-        employee = employeeRepository.save(employee);
-        log.info("Updated employee id={}", employee.getId());
+        // 3. SYNC ROLES (The JPA Way)
+        if (request.getRoleIds() != null) {
+            // Clear the existing roles list in memory.
+            // Because of 'orphanRemoval = true', Hibernate will automatically delete these
+            // from DB.
+            employee.getEmployeeRoles().clear();
 
-        return EmployeeResponse.from(
-                employeeRepository.findByIdWithRoles(employee.getId()).orElseThrow());
+            // Add the new roles to the list
+            for (Long roleId : request.getRoleIds()) {
+                Role role = resolveRole(restaurantId, roleId);
+
+                // Create the link object
+                EmployeeRole er = EmployeeRole.builder()
+                        .employee(employee)
+                        .role(role)
+                        .build();
+
+                // Add to the entity's collection
+                employee.getEmployeeRoles().add(er);
+            }
+        }
+
+        // 4. Save (This will flush all deletes and inserts in one go)
+        employee = employeeRepository.save(employee);
+        log.info("Updated employee id={} with {} roles", employee.getId(), employee.getEmployeeRoles().size());
+
+        // 5. Return the response
+        return EmployeeResponse.from(employee);
     }
 
     @Override
     @Transactional
     public void deactivate(Long restaurantId, Long employeeId) {
-        Employee employee = resolveEmployee(restaurantId, employeeId);
-        if (!employee.isActive()) {
-            throw new BusinessRuleException("Employee is already inactive.");
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Employee not found"));
+
+        // Guard: Ensure manager isn't deactivating someone from another restaurant
+        if (!employee.getRestaurant().getId().equals(restaurantId)) {
+            throw new ResourceNotFoundException("Employee not found in your restaurant");
         }
+
+        // SOFT DELETE: Just change the flag
         employee.setActive(false);
         employeeRepository.save(employee);
-        log.info("Deactivated employee id={}", employeeId);
     }
 
     @Override
@@ -160,7 +193,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Override
     @Transactional
     public EmployeeResponse assignRoles(Long restaurantId, Long employeeId,
-                                        AssignRolesRequest request) {
+            AssignRolesRequest request) {
         Employee employee = resolveEmployee(restaurantId, employeeId);
 
         employeeRoleRepository.deleteAllByEmployeeId(employeeId);
@@ -241,7 +274,8 @@ public class EmployeeServiceImpl implements EmployeeService {
      * @param restaurantId the restaurant's ID
      * @param employeeId   the employee's ID
      * @return the resolved {@link Employee} with roles loaded
-     * @throws ResourceNotFoundException if the employee does not exist or belongs to a different restaurant
+     * @throws ResourceNotFoundException if the employee does not exist or belongs
+     *                                   to a different restaurant
      */
     private Employee resolveEmployee(Long restaurantId, Long employeeId) {
         return employeeRepository.findByIdWithRoles(employeeId)
@@ -255,7 +289,8 @@ public class EmployeeServiceImpl implements EmployeeService {
      * @param restaurantId the restaurant's ID
      * @param roleId       the role's ID
      * @return the resolved {@link Role}
-     * @throws ResourceNotFoundException if the role does not exist or belongs to a different restaurant
+     * @throws ResourceNotFoundException if the role does not exist or belongs to a
+     *                                   different restaurant
      */
     private Role resolveRole(Long restaurantId, Long roleId) {
         return roleRepository.findById(roleId)
@@ -264,8 +299,10 @@ public class EmployeeServiceImpl implements EmployeeService {
     }
 
     /**
-     * Attaches a list of roles to an employee, skipping any that are already assigned.
-     * Each role is validated to belong to the same restaurant before being attached.
+     * Attaches a list of roles to an employee, skipping any that are already
+     * assigned.
+     * Each role is validated to belong to the same restaurant before being
+     * attached.
      *
      * @param employee     the employee to attach roles to
      * @param roleIds      the IDs of the roles to attach

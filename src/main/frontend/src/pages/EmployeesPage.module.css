@@ -173,3 +173,163 @@
   padding: 32px !important;
   font-size: 14px;
 }
+
+.addBtn {
+  background: #4318FF;
+  color: #fff;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.addBtn:hover { background: #3311CC; }
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.editBtn {
+  background: #fff;
+  color: #1B2559;
+  border: 1px solid #E9EDF7;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.editBtn:hover { background: #F4F7FE; }
+
+/* ── Modal ── */
+.modalOverlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  width: 100%;
+  max-width: 500px;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.modalHeader h2 {
+  font-size: 18px;
+  color: #1B2559;
+  margin: 0;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #A3AED0;
+  cursor: pointer;
+}
+
+/* ── Form ── */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1B2559;
+}
+
+.field input {
+  padding: 10px 14px;
+  border: 1px solid #E9EDF7;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.checkboxField {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1B2559;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sectionLabel {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1B2559;
+  margin-bottom: 10px;
+}
+
+.rolesGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  background: #F4F7FE;
+  padding: 12px;
+  border-radius: 10px;
+}
+
+.roleItem {
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #4A5568;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.cancelBtn {
+  background: #fff;
+  border: 1px solid #E9EDF7;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.submitBtn {
+  background: #4318FF;
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+}

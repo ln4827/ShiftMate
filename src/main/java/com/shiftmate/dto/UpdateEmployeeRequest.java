@@ -1,5 +1,7 @@
 package com.shiftmate.dto;
 
+import java.util.List;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
@@ -24,9 +26,10 @@ public class UpdateEmployeeRequest {
     @Size(max = 150)
     private String email;
 
-    /** New password to set. Pass {@code null} or omit to keep the existing password hash. */
-    @Size(min = 8, max = 72, message = "Password must be 8–72 characters.")
-    private String password;
+    private String password; // Correct: no validation, so it can be null/empty
 
+    @JsonProperty("manager")
     private boolean isManager;
+
+    private List<Long> roleIds; 
 }

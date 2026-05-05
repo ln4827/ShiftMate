@@ -1,14 +1,19 @@
 package com.shiftmate.dto;
 
 import com.shiftmate.entity.Employee;
+
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 /**
  * Read-only response object representing an employee. Constructed from an
- * {@link Employee} entity via the static factory method {@link #from(Employee)}.
+ * {@link Employee} entity via the static factory method
+ * {@link #from(Employee)}.
  * Never exposes the password hash or other sensitive internal fields.
  */
 @Getter
@@ -24,21 +29,23 @@ public class EmployeeResponse {
     private final List<RoleDto> roles;
 
     private EmployeeResponse(Employee employee) {
-        this.id        = employee.getId();
+        this.id = employee.getId();
         this.firstName = employee.getFirstName();
-        this.lastName  = employee.getLastName();
-        this.email     = employee.getEmail();
-        this.manager   = employee.isManager();
-        this.active    = employee.isActive();
+        this.lastName = employee.getLastName();
+        this.email = employee.getEmail();
+        this.manager = employee.isManager();
+        this.active = employee.isActive();
         this.createdAt = employee.getCreatedAt();
-        this.roles     = employee.getEmployeeRoles().stream()
+        this.roles = employee.getEmployeeRoles().stream()
                 .map(er -> new RoleDto(er.getRole().getId(), er.getRole().getName()))
                 .toList();
     }
 
     /**
-     * Creates an {@code EmployeeResponse} from a fully loaded {@link Employee} entity.
-     * The entity's {@code employeeRoles} collection must be initialised before calling
+     * Creates an {@code EmployeeResponse} from a fully loaded {@link Employee}
+     * entity.
+     * The entity's {@code employeeRoles} collection must be initialised before
+     * calling
      * this method to avoid lazy-loading exceptions.
      *
      * @param employee the source entity with roles loaded
@@ -53,18 +60,11 @@ public class EmployeeResponse {
      * inside an {@code EmployeeResponse}.
      */
     @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class RoleDto {
-
-        private final Long id;
-        private final String name;
-
-        /**
-         * @param id   the role's database ID
-         * @param name the role's display name
-         */
-        public RoleDto(Long id, String name) {
-            this.id   = id;
-            this.name = name;
-        }
+        private Long id;
+        private String name;
     }
 }

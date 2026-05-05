@@ -3,6 +3,7 @@ package com.shiftmate.controller;
 import com.shiftmate.dto.AssignRolesRequest;
 import com.shiftmate.dto.CreateEmployeeRequest;
 import com.shiftmate.dto.EmployeeResponse;
+import com.shiftmate.dto.RoleResponse;
 import com.shiftmate.dto.UpdateEmployeeRequest;
 import com.shiftmate.entity.Role;
 import com.shiftmate.repository.RoleRepository;
@@ -21,7 +22,8 @@ import java.util.List;
 /**
  * REST controller for employee management operations.
  *
- * <p>All endpoints are scoped to the authenticated user's restaurant via
+ * <p>
+ * All endpoints are scoped to the authenticated user's restaurant via
  * {@link ShiftMateUserDetails#getRestaurantId()}, ensuring tenants cannot
  * access each other's data. Manager-only operations are enforced via
  * {@code @PreAuthorize("hasRole('MANAGER')")}.
@@ -65,7 +67,29 @@ public class EmployeeController {
     }
 
     /**
-     * Returns a single employee by ID, scoped to the authenticated user's restaurant.
+     * Returns all roles available in the authenticated manager's restaurant.
+     * Used to populate the role assignment form.
+     *
+     * @param principal the authenticated manager
+     * @return list of available roles
+     */
+    @GetMapping("/available-roles")
+    @PreAuthorize("hasRole('MANAGER')")
+    public List<RoleResponse> getAvailableRoles(
+            @AuthenticationPrincipal ShiftMateUserDetails principal) {
+
+        // 1. Fetch roles from DB
+        List<com.shiftmate.entity.Role> roles = roleRepository.findByRestaurantId(principal.getRestaurantId());
+
+        // 2. Map to the simple standalone DTO
+        return roles.stream()
+                .map(r -> new RoleResponse(r.getId(), r.getName()))
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * Returns a single employee by ID, scoped to the authenticated user's
+     * restaurant.
      *
      * @param principal the authenticated user
      * @param id        the employee's ID
@@ -177,17 +201,4 @@ public class EmployeeController {
         return employeeService.removeRole(principal.getRestaurantId(), id, roleId);
     }
 
-    /**
-     * Returns all roles available in the authenticated manager's restaurant.
-     * Used to populate the role assignment form.
-     *
-     * @param principal the authenticated manager
-     * @return list of available roles
-     */
-    @GetMapping("/available-roles")
-    @PreAuthorize("hasRole('MANAGER')")
-    public List<Role> getAvailableRoles(
-            @AuthenticationPrincipal ShiftMateUserDetails principal) {
-        return roleRepository.findByRestaurantId(principal.getRestaurantId());
-    }
 }
