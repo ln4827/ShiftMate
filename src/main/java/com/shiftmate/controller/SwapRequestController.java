@@ -3,7 +3,7 @@ package com.shiftmate.controller;
 import com.shiftmate.dto.CreateSwapRequest;
 import com.shiftmate.dto.SwapRequestResponse;
 import com.shiftmate.security.ShiftMateUserDetails;
-import com.shiftmate.service.SwapService;
+import com.shiftmate.service.SwapRequestService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -14,19 +14,19 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/swaps")
+@RequestMapping("/api/swap-requests")
 @RequiredArgsConstructor
-public class SwapController {
+public class SwapRequestController {
 
-    private final SwapService swapService;
+    private final SwapRequestService swapRequestService;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('MANAGER', 'EMPLOYEE')")
     @ResponseStatus(HttpStatus.CREATED)
-    public SwapRequestResponse requestSwap(
+    public SwapRequestResponse create(
             @AuthenticationPrincipal ShiftMateUserDetails principal,
             @Valid @RequestBody CreateSwapRequest request) {
-        return swapService.requestSwap(
+        return swapRequestService.createSwapRequest(
                 principal.getEmployeeId(), principal.getRestaurantId(), request);
     }
 
@@ -34,14 +34,14 @@ public class SwapController {
     @PreAuthorize("hasAnyRole('MANAGER', 'EMPLOYEE')")
     public List<SwapRequestResponse> getMy(
             @AuthenticationPrincipal ShiftMateUserDetails principal) {
-        return swapService.getMySwaps(principal.getEmployeeId());
+        return swapRequestService.getMySwapRequests(principal.getEmployeeId());
     }
 
     @GetMapping("/pending")
     @PreAuthorize("hasRole('MANAGER')")
     public List<SwapRequestResponse> getPending(
             @AuthenticationPrincipal ShiftMateUserDetails principal) {
-        return swapService.getPendingForManager(principal.getRestaurantId());
+        return swapRequestService.getPendingForManager(principal.getRestaurantId());
     }
 
     @PostMapping("/{id}/approve")
@@ -49,7 +49,7 @@ public class SwapController {
     public SwapRequestResponse approve(
             @AuthenticationPrincipal ShiftMateUserDetails principal,
             @PathVariable Long id) {
-        return swapService.approve(principal.getRestaurantId(), id, principal.getEmployeeId());
+        return swapRequestService.approve(principal.getRestaurantId(), id, principal.getEmployeeId());
     }
 
     @PostMapping("/{id}/reject")
@@ -57,6 +57,6 @@ public class SwapController {
     public SwapRequestResponse reject(
             @AuthenticationPrincipal ShiftMateUserDetails principal,
             @PathVariable Long id) {
-        return swapService.reject(principal.getRestaurantId(), id, principal.getEmployeeId());
+        return swapRequestService.reject(principal.getRestaurantId(), id, principal.getEmployeeId());
     }
 }

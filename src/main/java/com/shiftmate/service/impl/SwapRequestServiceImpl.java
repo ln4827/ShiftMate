@@ -9,7 +9,7 @@ import com.shiftmate.repository.EmployeeRepository;
 import com.shiftmate.repository.ShiftAssignmentRepository;
 import com.shiftmate.repository.SwapRequestRepository;
 import com.shiftmate.service.NotificationService;
-import com.shiftmate.service.SwapService;
+import com.shiftmate.service.SwapRequestService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,7 +21,7 @@ import java.util.List;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class SwapServiceImpl implements SwapService {
+public class SwapRequestServiceImpl implements SwapRequestService {
 
     private final SwapRequestRepository swapRepository;
     private final ShiftAssignmentRepository assignmentRepository;
@@ -30,7 +30,7 @@ public class SwapServiceImpl implements SwapService {
 
     @Override
     @Transactional
-    public SwapRequestResponse requestSwap(Long employeeId, Long restaurantId, CreateSwapRequest req) {
+    public SwapRequestResponse createSwapRequest(Long employeeId, Long restaurantId, CreateSwapRequest req) {
         ShiftAssignment requester = assignmentRepository.findById(req.getRequesterAssignmentId())
                 .filter(a -> a.getEmployee().getId().equals(employeeId))
                 .orElseThrow(() -> new ResourceNotFoundException("ShiftAssignment", req.getRequesterAssignmentId()));
@@ -69,7 +69,7 @@ public class SwapServiceImpl implements SwapService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<SwapRequestResponse> getMySwaps(Long employeeId) {
+    public List<SwapRequestResponse> getMySwapRequests(Long employeeId) {
         return swapRepository.findByEmployeeId(employeeId).stream()
                 .map(SwapRequestResponse::from)
                 .toList();
@@ -85,8 +85,8 @@ public class SwapServiceImpl implements SwapService {
 
     @Override
     @Transactional
-    public SwapRequestResponse approve(Long restaurantId, Long swapId, Long managerId) {
-        SwapRequest swap = resolveForRestaurant(restaurantId, swapId);
+    public SwapRequestResponse approve(Long restaurantId, Long swapRequestId, Long managerId) {
+        SwapRequest swap = resolveForRestaurant(restaurantId, swapRequestId);
         Employee manager = employeeRepository.findById(managerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Employee", managerId));
 
@@ -95,7 +95,7 @@ public class SwapServiceImpl implements SwapService {
 
         validateNoOverlapAfterSwap(ra, ta);
 
-        // Atomically swap employees between the two assignments
+        // Atomically swap employees between the two ShiftAssignments (FR-15, AT-09)
         Employee originalRequester = ra.getEmployee();
         Employee originalTarget    = ta.getEmployee();
         ra.setEmployee(originalTarget);
@@ -113,14 +113,14 @@ public class SwapServiceImpl implements SwapService {
         notificationService.send(originalTarget.getId(), Notification.Type.SWAP_APPROVED,
                 "A shift swap involving your " + ta.getShift().getShiftDate() + " shift has been approved.");
 
-        log.info("Manager id={} approved swap id={}", managerId, swapId);
-        return loadResponse(swapId);
+        log.info("Manager id={} approved swap request id={}", managerId, swapRequestId);
+        return loadResponse(swapRequestId);
     }
 
     @Override
     @Transactional
-    public SwapRequestResponse reject(Long restaurantId, Long swapId, Long managerId) {
-        SwapRequest swap = resolveForRestaurant(restaurantId, swapId);
+    public SwapRequestResponse reject(Long restaurantId, Long swapRequestId, Long managerId) {
+        SwapRequest swap = resolveForRestaurant(restaurantId, swapRequestId);
         Employee manager = employeeRepository.findById(managerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Employee", managerId));
 
@@ -135,20 +135,20 @@ public class SwapServiceImpl implements SwapService {
                 + swap.getRequesterAssignment().getShift().getShiftDate()
                 + " shift has been rejected.");
 
-        log.info("Manager id={} rejected swap id={}", managerId, swapId);
-        return loadResponse(swapId);
+        log.info("Manager id={} rejected swap request id={}", managerId, swapRequestId);
+        return loadResponse(swapRequestId);
     }
 
     // -------------------------------------------------------------------------
 
-    private SwapRequest resolveForRestaurant(Long restaurantId, Long swapId) {
-        SwapRequest swap = swapRepository.findById(swapId)
-                .orElseThrow(() -> new ResourceNotFoundException("SwapRequest", swapId));
+    private SwapRequest resolveForRestaurant(Long restaurantId, Long swapRequestId) {
+        SwapRequest swap = swapRepository.findById(swapRequestId)
+                .orElseThrow(() -> new ResourceNotFoundException("SwapRequest", swapRequestId));
 
         Long swapRestaurantId = swap.getRequesterAssignment()
                 .getShift().getDepartment().getRestaurant().getId();
         if (!swapRestaurantId.equals(restaurantId)) {
-            throw new ResourceNotFoundException("SwapRequest", swapId);
+            throw new ResourceNotFoundException("SwapRequest", swapRequestId);
         }
         if (swap.getStatus() != SwapRequest.Status.PENDING) {
             throw new BusinessRuleException(
@@ -161,14 +161,12 @@ public class SwapServiceImpl implements SwapService {
         Employee requesterEmp = ra.getEmployee();
         Employee targetEmp    = ta.getEmployee();
 
-        // Would the target employee overlap on the requester's shift?
         if (!assignmentRepository.findOverlappingAssignments(
                 targetEmp.getId(), ra.getShift().getShiftDate(),
                 ra.getShift().getStartTime(), ra.getShift().getEndTime(), ra.getId()).isEmpty()) {
             throw new BusinessRuleException(targetEmp.getFullName()
                     + " has an overlapping shift and cannot take " + requesterEmp.getFullName() + "'s shift.");
         }
-        // Would the requester employee overlap on the target's shift?
         if (!assignmentRepository.findOverlappingAssignments(
                 requesterEmp.getId(), ta.getShift().getShiftDate(),
                 ta.getShift().getStartTime(), ta.getShift().getEndTime(), ta.getId()).isEmpty()) {
@@ -177,9 +175,9 @@ public class SwapServiceImpl implements SwapService {
         }
     }
 
-    private SwapRequestResponse loadResponse(Long swapId) {
-        return swapRepository.findByIdWithDetails(swapId)
+    private SwapRequestResponse loadResponse(Long swapRequestId) {
+        return swapRepository.findByIdWithDetails(swapRequestId)
                 .map(SwapRequestResponse::from)
-                .orElseThrow(() -> new ResourceNotFoundException("SwapRequest", swapId));
+                .orElseThrow(() -> new ResourceNotFoundException("SwapRequest", swapRequestId));
     }
 }
