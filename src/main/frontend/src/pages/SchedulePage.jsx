@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { shiftApi, departmentApi, employeeApi, availabilityApi } from '../api/client'
 import { useAuth } from '../App'
+import { useConfirm } from '../components/ConfirmDialog'
 import styles from './SchedulePage.module.css'
 
 const parseISO = (value) => {
@@ -48,16 +49,12 @@ function initials(name = '') {
   return name.split(' ').map(p => p[0] || '').join('').slice(0, 2).toUpperCase()
 }
 
-// true when [s1,e1) and [s2,e2) overlap (HH:mm strings)
-function timesOverlap(s1, e1, s2, e2) {
-  return s1 < e2 && s2 < e1
-}
-
-const BLANK_SHIFT  = { departmentId: '', shiftDate: '', startTime: '', endTime: '' }
-const BLANK_ASSIGN = { employeeId: '', roleId: '' }
+const BLANK_SHIFT = { departmentId: '', shiftDate: '', startTime: '', endTime: '' }
 
 export default function SchedulePage() {
   const { bumpNotifTick } = useAuth()
+  const confirm = useConfirm()
+
   const [weekStart, setWeekStart] = useState(() => toMon(new Date()))
   const [shifts, setShifts]       = useState([])
   const [departments, setDepts]   = useState([])
@@ -66,14 +63,19 @@ export default function SchedulePage() {
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState('')
 
-  const [shiftModal, setShiftModal]   = useState(null)
-  const [assignModal, setAssignModal] = useState(null)
-  const [assignForm, setAssignForm]   = useState(BLANK_ASSIGN)
-  const [empRoles, setEmpRoles]       = useState([])
-  const [formData, setFormData]       = useState(BLANK_SHIFT)
-  const [submitting, setSubmitting]   = useState(false)
-  const [modalError, setModalError]   = useState('')
-  const [availabilities, setAvailabilities] = useState({}) // { [empId]: windows[] }
+  const [shiftModal, setShiftModal] = useState(null)
+  const [formData, setFormData]     = useState(BLANK_SHIFT)
+  const [submitting, setSubmitting] = useState(false)
+  const [modalError, setModalError] = useState('')
+
+  // Inline assignment state inside the shift modal
+  const [inlineEmpId, setInlineEmpId]       = useState('')
+  const [inlineRoleId, setInlineRoleId]     = useState('')
+  const [inlineEmpRoles, setInlineEmpRoles] = useState([])
+  const [inlineAvail, setInlineAvail]       = useState([])
+  const [availLoading, setAvailLoading]     = useState(false)
+  const [pendingAdditions, setPendingAdditions] = useState([]) // { tempId, employeeId, employeeName, roleId, roleName }
+  const [pendingRemovals, setPendingRemovals]   = useState([]) // assignment IDs to remove on save
 
   useEffect(() => {
     departmentApi.list().then(setDepts).catch(() => {})
@@ -97,7 +99,6 @@ export default function SchedulePage() {
     [weekStart]
   )
 
-  // Shifts grouped by date, sorted by start time
   const shiftsByDay = useMemo(() => {
     const map = {}
     weekDates.forEach(d => { map[d] = [] })
@@ -106,61 +107,94 @@ export default function SchedulePage() {
     return map
   }, [shifts, weekDates])
 
-  // Shifts that have coverage requirements but don't meet them
   const coverageWarnings = useMemo(() =>
     shifts.filter(s => s.coverageRequirements?.length > 0 && !s.coverageMet),
     [shifts]
   )
 
-  // Per-employee conflict/availability status for the currently open assign modal
-  const employeeStatus = useMemo(() => {
-    if (!assignModal) return {}
-    const shift = shifts.find(s => s.id === assignModal.shiftId)
-    if (!shift) return {}
+  // Allowed role IDs for whichever department is selected in the form
+  const formDeptAllowedRoleIds = useMemo(() => {
+    if (!formData.departmentId) return []
+    const dept = departments.find(d => d.id === Number(formData.departmentId))
+    return dept?.allowedRoleIds || []
+  }, [formData.departmentId, departments])
 
-    // ISO day of week for the shift: 1=Mon … 7=Sun
-    const d = parseISO(shift.shiftDate)
-    const dow = d.getDay()
-    const isoDay = dow === 0 ? 7 : dow
+  // Active employees filtered by allowed roles and excluding already-assigned ones
+  const eligibleEmps = useMemo(() => {
+    const existingIds = new Set([
+      ...(shiftModal?.mode === 'edit'
+        ? (shifts.find(s => s.id === shiftModal.shiftId)?.assignments || [])
+            .filter(a => !pendingRemovals.includes(a.id))
+            .map(a => a.employeeId)
+        : []),
+      ...pendingAdditions.map(a => a.employeeId),
+    ])
+    const active = employees.filter(e => e.active && !existingIds.has(e.id))
+    if (!formDeptAllowedRoleIds.length) return active
+    return active.filter(emp => emp.roles?.some(r => formDeptAllowedRoleIds.includes(r.id)))
+  }, [employees, formDeptAllowedRoleIds, shiftModal, shifts, pendingRemovals, pendingAdditions])
 
-    const status = {}
-    employees.filter(e => e.active).forEach(emp => {
-      const key = String(emp.id)
+  // Selected employee's roles filtered by department allowed roles
+  const filteredInlineRoles = useMemo(() => {
+    if (!formDeptAllowedRoleIds.length) return inlineEmpRoles
+    return inlineEmpRoles.filter(r => formDeptAllowedRoleIds.includes(r.id))
+  }, [inlineEmpRoles, formDeptAllowedRoleIds])
 
-      if (shift.assignments.some(a => a.employeeId === emp.id)) {
-        status[key] = 'assigned'
-        return
-      }
+  // Assignments to show in the modal: existing (minus removals) + pending additions
+  const displayedAssignments = useMemo(() => {
+    const existing = shiftModal?.mode === 'edit'
+      ? (shifts.find(s => s.id === shiftModal.shiftId)?.assignments || [])
+          .filter(a => !pendingRemovals.includes(a.id))
+          .map(a => ({
+            id: a.id,
+            employeeName: a.employeeName,
+            roleName: a.roleName || roles.find(r => r.id === a.roleId)?.name || '',
+            isNew: false,
+          }))
+      : []
+    const added = pendingAdditions.map(a => ({
+      tempId: a.tempId,
+      employeeName: a.employeeName,
+      roleName: a.roleName,
+      isNew: true,
+    }))
+    return [...existing, ...added]
+  }, [shiftModal, shifts, pendingRemovals, pendingAdditions, roles])
 
-      const conflict = shifts.some(s =>
-        s.id !== shift.id &&
-        s.shiftDate === shift.shiftDate &&
-        s.assignments.some(a => a.employeeId === emp.id) &&
-        timesOverlap(s.startTime, s.endTime, shift.startTime, shift.endTime)
-      )
-      if (conflict) { status[key] = 'conflict'; return }
-
-      // Availability check — only applies when the employee has set availability
-      const windows = availabilities[emp.id]
-      if (windows && windows.length > 0) {
-        const dayWindows = windows.filter(w => w.dayOfWeek === isoDay)
-        if (dayWindows.length === 0) { status[key] = 'unavailable'; return }
-        const fits = dayWindows.some(w =>
-          shift.startTime >= w.startTime && shift.startTime < w.endTime
-        )
-        if (!fits) { status[key] = 'unavailable'; return }
-      }
-
-      status[key] = 'available'
-    })
-    return status
-  }, [assignModal, shifts, employees, availabilities])
+  // Availability status for the currently selected inline employee
+  const inlineAvailStatus = useMemo(() => {
+    if (!inlineEmpId || !formData.shiftDate || !formData.startTime || !formData.endTime) return null
+    if (availLoading) return 'loading'
+    const dow = (() => {
+      const d = new Date(formData.shiftDate + 'T00:00:00')
+      const js = d.getDay()
+      return js === 0 ? 7 : js // ISO: 1=Mon … 7=Sun
+    })()
+    const toHHMM = (t) => (t || '').slice(0, 5)
+    const windows = inlineAvail.filter(w => w.dayOfWeek === dow)
+    if (!windows.length) return 'unavailable'
+    const s = formData.startTime, e = formData.endTime
+    if (windows.some(w => toHHMM(w.startTime) <= s && toHHMM(w.endTime) >= e)) return 'available'
+    if (windows.some(w => toHHMM(w.startTime) < e && toHHMM(w.endTime) > s)) return 'partial'
+    return 'unavailable'
+  }, [inlineEmpId, formData.shiftDate, formData.startTime, formData.endTime, inlineAvail, availLoading])
 
   // ── Shift CRUD ───────────────────────────────────────────────────────────────
+
+  const resetInlineAssign = () => {
+    setInlineEmpId('')
+    setInlineRoleId('')
+    setInlineEmpRoles([])
+    setInlineAvail([])
+    setAvailLoading(false)
+    setPendingAdditions([])
+    setPendingRemovals([])
+  }
 
   const openCreate = (prefillDate) => {
     setFormData({ ...BLANK_SHIFT, shiftDate: prefillDate || toISO(weekStart) })
     setModalError('')
+    resetInlineAssign()
     setShiftModal({ mode: 'create' })
   }
 
@@ -172,10 +206,11 @@ export default function SchedulePage() {
       endTime:      s.endTime,
     })
     setModalError('')
+    resetInlineAssign()
     setShiftModal({ mode: 'edit', shiftId: s.id })
   }
 
-  const submitShift = (e) => {
+  const submitShift = async (e) => {
     e.preventDefault()
     setSubmitting(true)
     setModalError('')
@@ -185,17 +220,35 @@ export default function SchedulePage() {
       startTime:    formData.startTime,
       endTime:      formData.endTime,
     }
-    const call = shiftModal.mode === 'create'
-      ? shiftApi.create(payload)
-      : shiftApi.update(shiftModal.shiftId, payload)
-    call
-      .then(() => { setShiftModal(null); loadShifts() })
-      .catch(e => setModalError(e.message))
-      .finally(() => setSubmitting(false))
+    try {
+      let shiftId
+      if (shiftModal.mode === 'create') {
+        const created = await shiftApi.create(payload)
+        shiftId = created.id
+      } else {
+        await shiftApi.update(shiftModal.shiftId, payload)
+        shiftId = shiftModal.shiftId
+      }
+      for (const aId of pendingRemovals) {
+        await shiftApi.unassign(shiftId, aId)
+      }
+      for (const a of pendingAdditions) {
+        await shiftApi.assign(shiftId, { employeeId: a.employeeId, roleId: a.roleId })
+      }
+      setShiftModal(null)
+      loadShifts()
+    } catch (err) {
+      setModalError(err.message)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  const deleteShift = (id) => {
-    if (!window.confirm('Delete this shift?')) return
+  const deleteShift = async (id) => {
+    const ok = await confirm('Delete shift', 'This shift and all its assignments will be permanently removed.', {
+      confirmText: 'Delete', variant: 'danger',
+    })
+    if (!ok) return
     shiftApi.delete(id).then(loadShifts).catch(e => setError(e.message))
   }
 
@@ -209,54 +262,56 @@ export default function SchedulePage() {
       loadShifts()
     } catch (e) {
       if (e.message && e.message.toLowerCase().includes('coverage')) {
-        if (window.confirm(`Coverage warning:\n\n${e.message}\n\nPublish anyway?`)) {
-          shiftApi.publish(s.id, true).then(loadShifts).catch(e2 => setError(e2.message))
-        }
+        const ok = await confirm('Coverage warning', e.message, {
+          confirmText: 'Publish anyway', variant: 'warning',
+        })
+        if (ok) shiftApi.publish(s.id, true).then(loadShifts).catch(e2 => setError(e2.message))
       } else {
         setError(e.message)
       }
     }
   }
 
-  // ── Assign ───────────────────────────────────────────────────────────────────
-
-  const openAssign = (shiftId) => {
-    setAssignForm(BLANK_ASSIGN)
-    setEmpRoles([])
-    setModalError('')
-    setAvailabilities({})
-    setAssignModal({ shiftId })
-    const active = employees.filter(e => e.active)
-    Promise.all(
-      active.map(emp =>
-        availabilityApi.get(emp.id)
-          .then(windows => ({ empId: emp.id, windows }))
-          .catch(() => ({ empId: emp.id, windows: [] }))
-      )
-    ).then(results => {
-      const map = {}
-      results.forEach(({ empId, windows }) => { map[empId] = windows })
-      setAvailabilities(map)
-    })
-  }
-
-  const submitAssign = (e) => {
-    e.preventDefault()
-    setSubmitting(true)
-    setModalError('')
-    shiftApi.assign(assignModal.shiftId, {
-      employeeId: Number(assignForm.employeeId),
-      roleId:     Number(assignForm.roleId),
-    })
-      .then(() => { setAssignModal(null); setEmpRoles([]); loadShifts() })
-      .catch(e => setModalError(e.message))
-      .finally(() => setSubmitting(false))
-  }
-
   const unassign = (shiftId, assignmentId) => {
     shiftApi.unassign(shiftId, assignmentId)
       .then(loadShifts)
       .catch(e => setError(e.message))
+  }
+
+  // ── Inline assignment handlers ────────────────────────────────────────────────
+
+  const addInlineAssignment = () => {
+    if (!inlineEmpId || !inlineRoleId) return
+    const alreadyAdded = pendingAdditions.some(a => String(a.employeeId) === inlineEmpId)
+    const alreadyExists = shiftModal?.mode === 'edit' &&
+      (shifts.find(s => s.id === shiftModal.shiftId)?.assignments || [])
+        .filter(a => !pendingRemovals.includes(a.id))
+        .some(a => String(a.employeeId) === inlineEmpId)
+    if (alreadyAdded || alreadyExists) {
+      setModalError('This employee is already assigned to this shift.')
+      return
+    }
+    const emp  = employees.find(e => String(e.id) === inlineEmpId)
+    const role = roles.find(r => String(r.id) === inlineRoleId)
+    setPendingAdditions(prev => [...prev, {
+      tempId:       Date.now(),
+      employeeId:   Number(inlineEmpId),
+      employeeName: emp ? `${emp.firstName} ${emp.lastName}` : '',
+      roleId:       Number(inlineRoleId),
+      roleName:     role?.name || '',
+    }])
+    setInlineEmpId('')
+    setInlineRoleId('')
+    setInlineEmpRoles([])
+    setModalError('')
+  }
+
+  const removeDisplayedAssignment = (a) => {
+    if (a.isNew) {
+      setPendingAdditions(prev => prev.filter(x => x.tempId !== a.tempId))
+    } else {
+      setPendingRemovals(prev => [...prev, a.id])
+    }
   }
 
   const draftCount = shifts.filter(s => !s.published).length
@@ -268,42 +323,17 @@ export default function SchedulePage() {
       bumpNotifTick()
     } catch (e) {
       if (e.message && e.message.toLowerCase().includes('coverage')) {
-        if (window.confirm(`Coverage warning:\n\n${e.message}\n\nPublish all drafts anyway?`)) {
-          shiftApi.publishWeek(weekStart, true)
-            .then(() => { loadShifts(); bumpNotifTick() })
-            .catch(e2 => setError(e2.message))
-        }
+        const ok = await confirm('Coverage warning', e.message, {
+          confirmText: 'Publish all anyway', variant: 'warning',
+        })
+        if (ok) shiftApi.publishWeek(weekStart, true)
+          .then(() => { loadShifts(); bumpNotifTick() })
+          .catch(e2 => setError(e2.message))
       } else {
         setError(e.message)
       }
     }
   }
-
-  const activeEmps = employees.filter(e => e.active)
-  const selectedEmpStatus = employeeStatus[assignForm.employeeId]
-
-  // Allowed roles for the department of the shift currently being assigned
-  const deptAllowedRoleIds = useMemo(() => {
-    if (!assignModal) return []
-    const shift = shifts.find(s => s.id === assignModal.shiftId)
-    if (!shift) return []
-    const dept = departments.find(d => d.id === shift.departmentId)
-    return dept?.allowedRoleIds || []
-  }, [assignModal, shifts, departments])
-
-  // Only show employees who hold at least one allowed role (when a restriction is configured)
-  const eligibleEmps = useMemo(() => {
-    if (!deptAllowedRoleIds.length) return activeEmps
-    return activeEmps.filter(emp =>
-      emp.roles && emp.roles.some(r => deptAllowedRoleIds.includes(r.id))
-    )
-  }, [activeEmps, deptAllowedRoleIds])
-
-  // When an employee is selected, only show their roles that are allowed for this department
-  const filteredEmpRoles = useMemo(() => {
-    if (!deptAllowedRoleIds.length) return empRoles
-    return empRoles.filter(r => deptAllowedRoleIds.includes(r.id))
-  }, [empRoles, deptAllowedRoleIds])
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -344,7 +374,7 @@ export default function SchedulePage() {
       {error && <div className={styles.errorBanner}>{error}</div>}
       {loading && <div className={styles.loading}>Loading…</div>}
 
-      {/* Weekly grid: 7 day columns, shifts as cards within each column */}
+      {/* Weekly grid */}
       <div className={styles.gridWrapper}>
         <div className={styles.dayGrid}>
           {weekDates.map((date, i) => {
@@ -365,7 +395,6 @@ export default function SchedulePage() {
                       key={s.id}
                       shift={s}
                       onEdit={openEdit}
-                      onAssign={openAssign}
                       onDelete={deleteShift}
                       onTogglePublish={togglePublish}
                       onUnassign={unassign}
@@ -397,7 +426,16 @@ export default function SchedulePage() {
             <form onSubmit={submitShift} className={styles.form}>
               <label>
                 Department
-                <select required value={formData.departmentId} onChange={e => setFormData(f => ({ ...f, departmentId: e.target.value }))}>
+                <select
+                  required
+                  value={formData.departmentId}
+                  onChange={e => {
+                    setFormData(f => ({ ...f, departmentId: e.target.value }))
+                    setInlineEmpId('')
+                    setInlineRoleId('')
+                    setInlineEmpRoles([])
+                  }}
+                >
                   <option value="">Select department…</option>
                   {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
@@ -416,81 +454,89 @@ export default function SchedulePage() {
                   <input type="time" required value={formData.endTime} onChange={e => setFormData(f => ({ ...f, endTime: e.target.value }))} />
                 </label>
               </div>
+
+              {/* ── Assignments ── */}
+              <div className={styles.assignSection}>
+                <span className={styles.assignSectionLabel}>Assignments</span>
+
+                {displayedAssignments.length > 0 && (
+                  <div className={styles.assignList}>
+                    {displayedAssignments.map(a => (
+                      <div key={a.isNew ? a.tempId : a.id} className={styles.assignListRow}>
+                        <span className={styles.assignListAvatar}>{initials(a.employeeName)}</span>
+                        <span className={styles.assignListName}>{a.employeeName}</span>
+                        {a.roleName && <span className={styles.assignListRole}>{a.roleName}</span>}
+                        <button
+                          type="button"
+                          className={styles.assignListRemove}
+                          onClick={() => removeDisplayedAssignment(a)}
+                          title="Remove"
+                        >&#x2715;</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className={styles.assignAddRow}>
+                  <select
+                    value={inlineEmpId}
+                    disabled={!formData.departmentId}
+                    onChange={e => {
+                      const id = e.target.value
+                      setInlineEmpId(id)
+                      setInlineRoleId('')
+                      const emp = employees.find(em => String(em.id) === id)
+                      setInlineEmpRoles(emp?.roles || [])
+                      if (id) {
+                        setAvailLoading(true)
+                        availabilityApi.get(id)
+                          .then(setInlineAvail)
+                          .catch(() => setInlineAvail([]))
+                          .finally(() => setAvailLoading(false))
+                      } else {
+                        setInlineAvail([])
+                      }
+                    }}
+                  >
+                    <option value="">Select employee…</option>
+                    {eligibleEmps.map(e => (
+                      <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={inlineRoleId}
+                    disabled={!inlineEmpId}
+                    onChange={e => setInlineRoleId(e.target.value)}
+                  >
+                    <option value="">Role…</option>
+                    {filteredInlineRoles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  </select>
+                  <button
+                    type="button"
+                    className={styles.assignAddBtn}
+                    disabled={!inlineEmpId || !inlineRoleId}
+                    onClick={addInlineAssignment}
+                  >+ Add</button>
+                </div>
+
+                {inlineAvailStatus && (
+                  <div className={`${styles.availIndicator} ${
+                    inlineAvailStatus === 'loading'     ? styles.availGrey   :
+                    inlineAvailStatus === 'available'   ? styles.availGreen  :
+                    inlineAvailStatus === 'partial'     ? styles.availYellow :
+                    styles.availRed
+                  }`}>
+                    {inlineAvailStatus === 'loading'   && 'Checking availability…'}
+                    {inlineAvailStatus === 'available' && '✓ Available for this shift'}
+                    {inlineAvailStatus === 'partial'   && '~ Partially available for this shift'}
+                    {inlineAvailStatus === 'unavailable' && '✕ Not available for this shift'}
+                  </div>
+                )}
+              </div>
+
               <div className={styles.modalFooter}>
                 <button type="button" onClick={() => setShiftModal(null)}>Cancel</button>
                 <button type="submit" disabled={submitting}>{submitting ? 'Saving…' : 'Save Shift'}</button>
-              </div>
-            </form>
-          </dialog>
-        </div>
-      )}
-
-      {/* Assign Employee modal */}
-      {assignModal && (
-        <div className={styles.overlay}>
-          <dialog open className={styles.modal} aria-labelledby="assign-modal-title">
-            <div className={styles.modalHeader}>
-              <h3 id="assign-modal-title">Assign Employee</h3>
-              <button className={styles.modalClose} onClick={() => setAssignModal(null)}>&#x2715;</button>
-            </div>
-            {modalError && <div className={styles.modalError}>{modalError}</div>}
-            <form onSubmit={submitAssign} className={styles.form}>
-              <label>
-                Employee
-                <select
-                  required
-                  value={assignForm.employeeId}
-                  onChange={e => {
-                    const empId = e.target.value
-                    setAssignForm(f => ({ ...f, employeeId: empId, roleId: '' }))
-                    if (empId) {
-                      const employee = employees.find(emp => String(emp.id) === empId)
-                      setEmpRoles(employee?.roles || [])
-                    } else {
-                      setEmpRoles([])
-                    }
-                  }}
-                >
-                  <option value="">Select employee…</option>
-                  {eligibleEmps.map(e => {
-                    const st = employeeStatus[String(e.id)] || 'available'
-                    const suffix = st === 'conflict'     ? ' — ⚠ shift conflict'
-                                 : st === 'unavailable'  ? ' — ⚠ outside availability'
-                                 : st === 'assigned'     ? ' — already assigned'
-                                 : ''
-                    return (
-                      <option key={e.id} value={e.id} disabled={st === 'assigned'}>
-                        {e.firstName} {e.lastName}{suffix}
-                      </option>
-                    )
-                  })}
-                </select>
-                {assignForm.employeeId && (
-                  <div className={`${styles.availIndicator} ${
-                    selectedEmpStatus === 'available'   ? styles.availGreen  :
-                    selectedEmpStatus === 'conflict'    ? styles.availRed    :
-                    selectedEmpStatus === 'unavailable' ? styles.availYellow :
-                    styles.availGrey
-                  }`}>
-                    {selectedEmpStatus === 'available'   && '● Available — no scheduling conflicts'}
-                    {selectedEmpStatus === 'conflict'    && '● Has a conflicting shift at this time'}
-                    {selectedEmpStatus === 'unavailable' && '● Outside their stated availability hours'}
-                    {selectedEmpStatus === 'assigned'    && '● Already assigned to this shift'}
-                  </div>
-                )}
-              </label>
-              <label>
-                Role
-                <select required value={assignForm.roleId} onChange={e => setAssignForm(f => ({ ...f, roleId: e.target.value }))}>
-                  <option value="">Select role…</option>
-                  {filteredEmpRoles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                </select>
-              </label>
-              <div className={styles.modalFooter}>
-                <button type="button" onClick={() => { setAssignModal(null); setEmpRoles([]) }}>Cancel</button>
-                <button type="submit" disabled={submitting || selectedEmpStatus === 'assigned'}>
-                  {submitting ? 'Assigning…' : 'Assign'}
-                </button>
               </div>
             </form>
           </dialog>
@@ -502,7 +548,7 @@ export default function SchedulePage() {
 
 // ── Shift block card ──────────────────────────────────────────────────────────
 
-function ShiftBlock({ shift: s, onEdit, onAssign, onDelete, onTogglePublish, onUnassign }) {
+function ShiftBlock({ shift: s, onEdit, onDelete, onTogglePublish, onUnassign }) {
   const color = deptColor(s.departmentId)
   return (
     <div className={styles.shiftBlock} style={{ background: color }}>
@@ -536,7 +582,6 @@ function ShiftBlock({ shift: s, onEdit, onAssign, onDelete, onTogglePublish, onU
 
       <div className={styles.shiftActions}>
         <button className={styles.actBtn} onClick={() => onEdit(s)}>Edit</button>
-        <button className={styles.actBtn} onClick={() => onAssign(s.id)}>Assign</button>
         {s.published && (
           <button className={`${styles.actBtn} ${styles.unpublishBtn}`} onClick={() => onTogglePublish(s)}>
             Unpublish

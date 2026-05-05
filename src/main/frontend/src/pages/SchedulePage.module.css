@@ -385,7 +385,7 @@
   background: #fff;
   border-radius: 16px;
   padding: 28px;
-  width: 400px;
+  width: 480px;
   max-width: 95vw;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
   border: none;
@@ -527,3 +527,122 @@
 }
 .modalFooter button[type="submit"]:hover { background: #3311DB; }
 .modalFooter button[type="submit"]:disabled { opacity: 0.5; cursor: default; }
+
+/* ── Inline assignment section inside modal ── */
+.assignSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.assignSectionLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1B2559;
+}
+
+.assignList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.assignListRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #F4F7FE;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+.assignListAvatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #4318FF;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.assignListName {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1B2559;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.assignListRole {
+  font-size: 11px;
+  font-weight: 600;
+  color: #4A5568;
+  background: #E9EDF7;
+  border-radius: 5px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.assignListRemove {
+  background: none;
+  border: none;
+  color: #A3AED0;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 2px;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: color 0.12s;
+}
+.assignListRemove:hover { color: #EE5D50; }
+
+.assignAddRow {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.assignAddRow select {
+  flex: 1;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid #E9EDF7;
+  border-radius: 8px;
+  font-size: 13px;
+  outline: none;
+  color: #1B2559;
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  min-width: 0;
+}
+.assignAddRow select:focus {
+  border-color: #4318FF;
+  box-shadow: 0 0 0 3px rgba(67, 24, 255, 0.1);
+}
+.assignAddRow select:disabled { background: #F4F7FE; color: #6B7A99; }
+
+.assignAddBtn {
+  height: 36px;
+  padding: 0 14px;
+  background: #4318FF;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.assignAddBtn:hover { background: #3311DB; }
+.assignAddBtn:disabled { opacity: 0.45; cursor: default; }

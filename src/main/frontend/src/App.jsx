@@ -3,6 +3,7 @@ import { useState, useEffect, createContext, useContext, useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { authApi } from './api/client'
 import NavBar from './components/NavBar'
+import { ConfirmProvider } from './components/ConfirmDialog'
 import LoginPage from './pages/LoginPage'
 import EmployeesPage from './pages/EmployeesPage'
 import SchedulePage from './pages/SchedulePage'
@@ -64,6 +65,7 @@ export default function App() {
 
   return (
     <AuthContext.Provider value={contextValue}>
+      <ConfirmProvider>
       <Routes>
         <Route path="/login" element={user ? <Navigate to={defaultRoute} replace /> : <LoginPage />} />
 
@@ -117,6 +119,7 @@ export default function App() {
 
         <Route path="*" element={<Navigate to={user ? defaultRoute : '/login'} replace />} />
       </Routes>
+      </ConfirmProvider>
     </AuthContext.Provider>
   )
 }
