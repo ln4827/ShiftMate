@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { employeeApi, authApi } from '../api/client'
+import { employeeApi } from '../api/client'
 import { useAuth } from '../App'
 import styles from './EmployeesPage.module.css'
 
+function initials(firstName = '', lastName = '') {
+  return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase()
+}
+
 export default function EmployeesPage() {
-  const { user, setUser } = useAuth()
-  const navigate = useNavigate()
+  const { user } = useAuth()
   const [employees, setEmployees] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -17,12 +19,6 @@ export default function EmployeesPage() {
       .catch(err => setError(err.message))
       .finally(() => setLoading(false))
   }, [])
-
-  async function handleLogout() {
-    await authApi.logout().catch(() => {})
-    setUser(null)
-    navigate('/login')
-  }
 
   async function handleToggle(employee) {
     try {
@@ -40,78 +36,73 @@ export default function EmployeesPage() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>ShiftMate</h1>
-        <div className={styles.headerRight}>
-          <span className={styles.userInfo}>
-            {user.email} {user.manager && <span className={styles.badge}>Manager</span>}
-          </span>
-          <button onClick={handleLogout} className={styles.logoutBtn}>Sign out</button>
-        </div>
-      </header>
+      <div className={styles.pageHeader}>
+        <h1 className={styles.title}>Employees</h1>
+      </div>
 
-      <main className={styles.main}>
-        <div className={styles.toolbar}>
-          <h2 className={styles.sectionTitle}>Employees</h2>
-        </div>
+      {loading && <p className={styles.state}>Loading…</p>}
+      {error   && <p className={styles.errorState}>{error}</p>}
 
-        {loading && <p className={styles.state}>Loading…</p>}
-        {error   && <p className={styles.errorState}>{error}</p>}
-
-        {!loading && !error && (
-          <div className={styles.tableWrapper}>
-            <table className={styles.table}>
-              <thead>
+      {!loading && !error && (
+        <div className={styles.tableWrapper}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Roles</th>
+                <th>Status</th>
+                {user.manager && <th>Actions</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {employees.length === 0 && (
                 <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Roles</th>
-                  <th>Status</th>
-                  {user.manager && <th>Actions</th>}
+                  <td colSpan={user.manager ? 5 : 4} className={styles.empty}>
+                    No employees found.
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {employees.length === 0 && (
-                  <tr>
-                    <td colSpan={user.manager ? 5 : 4} className={styles.empty}>
-                      No employees found.
-                    </td>
-                  </tr>
-                )}
-                {employees.map(emp => (
-                  <tr key={emp.id}>
-                    <td className={styles.name}>
-                      {emp.firstName} {emp.lastName}
-                      {emp.manager && <span className={styles.badge}>Manager</span>}
-                    </td>
-                    <td>{emp.email}</td>
-                    <td>
-                      {emp.roles.length > 0
-                        ? emp.roles.map(r => r.name).join(', ')
-                        : <span className={styles.noRoles}>—</span>}
-                    </td>
-                    <td>
-                      <span className={emp.active ? styles.active : styles.inactive}>
-                        {emp.active ? 'Active' : 'Inactive'}
+              )}
+              {employees.map(emp => (
+                <tr key={emp.id}>
+                  <td>
+                    <div className={styles.nameCell}>
+                      <div className={styles.avatar}>
+                        {initials(emp.firstName, emp.lastName)}
+                      </div>
+                      <span className={styles.nameText}>
+                        {emp.firstName} {emp.lastName}
+                        {emp.manager && <span className={styles.badge}>Manager</span>}
                       </span>
+                    </div>
+                  </td>
+                  <td>{emp.email}</td>
+                  <td>
+                    {emp.roles.length > 0
+                      ? emp.roles.map(r => r.name).join(', ')
+                      : <span className={styles.noRoles}>—</span>}
+                  </td>
+                  <td>
+                    <span className={emp.active ? styles.active : styles.inactive}>
+                      {emp.active ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  {user.manager && (
+                    <td>
+                      <button
+                        onClick={() => handleToggle(emp)}
+                        className={emp.active ? styles.deactivateBtn : styles.reactivateBtn}
+                      >
+                        {emp.active ? 'Deactivate' : 'Reactivate'}
+                      </button>
                     </td>
-                    {user.manager && (
-                      <td>
-                        <button
-                          onClick={() => handleToggle(emp)}
-                          className={emp.active ? styles.deactivateBtn : styles.reactivateBtn}
-                        >
-                          {emp.active ? 'Deactivate' : 'Reactivate'}
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </main>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }

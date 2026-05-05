@@ -31,9 +31,12 @@ public interface ShiftRepository extends JpaRepository<Shift, Long> {
     @Query("""
             SELECT DISTINCT s FROM Shift s
             JOIN FETCH s.department d
+            JOIN FETCH s.createdBy cb
             LEFT JOIN FETCH s.assignments sa
             LEFT JOIN FETCH sa.employee e
             LEFT JOIN FETCH sa.role r
+            LEFT JOIN FETCH s.coverageRequirements cr
+            LEFT JOIN FETCH cr.role crRole
             WHERE d.restaurant.id = :restaurantId
               AND s.shiftDate BETWEEN :from AND :to
             ORDER BY s.shiftDate, s.startTime
@@ -54,10 +57,19 @@ public interface ShiftRepository extends JpaRepository<Shift, Long> {
     @Query("""
             SELECT DISTINCT s FROM Shift s
             JOIN FETCH s.department
-            JOIN s.assignments sa
-            WHERE sa.employee.id = :employeeId
-              AND s.shiftDate BETWEEN :from AND :to
-              AND s.isPublished = true
+            JOIN FETCH s.createdBy
+            LEFT JOIN FETCH s.assignments sa
+            LEFT JOIN FETCH sa.employee
+            LEFT JOIN FETCH sa.role
+            LEFT JOIN FETCH s.coverageRequirements cr
+            LEFT JOIN FETCH cr.role
+            WHERE s.id IN (
+                SELECT s2.id FROM Shift s2
+                JOIN s2.assignments a
+                WHERE a.employee.id = :employeeId
+                  AND s2.shiftDate BETWEEN :from AND :to
+                  AND s2.isPublished = true
+            )
             ORDER BY s.shiftDate, s.startTime
             """)
     List<Shift> findPublishedShiftsForEmployee(@Param("employeeId") Long employeeId,
@@ -101,11 +113,38 @@ public interface ShiftRepository extends JpaRepository<Shift, Long> {
      */
     @Query("""
             SELECT s FROM Shift s
+            JOIN FETCH s.department d
+            JOIN FETCH d.restaurant
+            JOIN FETCH s.createdBy
             LEFT JOIN FETCH s.coverageRequirements cr
             LEFT JOIN FETCH cr.role
             LEFT JOIN FETCH s.assignments sa
             LEFT JOIN FETCH sa.role
+            LEFT JOIN FETCH sa.employee
             WHERE s.id = :id
             """)
     Optional<Shift> findByIdWithCoverageAndAssignments(@Param("id") Long id);
+
+    /**
+     * Fetches all published shifts for a restaurant within a date range with
+     * assignments eagerly loaded. Used for the employee-accessible schedule view
+     * and the swap-request target picker.
+     */
+    @Query("""
+            SELECT DISTINCT s FROM Shift s
+            JOIN FETCH s.department d
+            JOIN FETCH s.createdBy cb
+            LEFT JOIN FETCH s.assignments sa
+            LEFT JOIN FETCH sa.employee e
+            LEFT JOIN FETCH sa.role r
+            LEFT JOIN FETCH s.coverageRequirements cr
+            LEFT JOIN FETCH cr.role crRole
+            WHERE d.restaurant.id = :restaurantId
+              AND s.shiftDate BETWEEN :from AND :to
+              AND s.isPublished = true
+            ORDER BY s.shiftDate, s.startTime
+            """)
+    List<Shift> findPublishedWeeklySchedule(@Param("restaurantId") Long restaurantId,
+                                            @Param("from") LocalDate from,
+                                            @Param("to") LocalDate to);
 }

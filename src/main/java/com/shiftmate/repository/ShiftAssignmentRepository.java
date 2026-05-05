@@ -67,8 +67,10 @@ public interface ShiftAssignmentRepository extends JpaRepository<ShiftAssignment
             JOIN FETCH sa.shift s
             WHERE sa.employee.id = :employeeId
               AND s.shiftDate = :date
-              AND s.startTime < :endTime
-              AND s.endTime > :startTime
+              AND (
+                (s.endTime > s.startTime AND s.startTime < :endTime AND s.endTime > :startTime)
+                OR (s.endTime <= s.startTime AND (s.startTime < :endTime OR s.endTime > :startTime))
+              )
               AND (:excludeAssignmentId IS NULL OR sa.id <> :excludeAssignmentId)
             """)
     List<ShiftAssignment> findOverlappingAssignments(
@@ -77,6 +79,27 @@ public interface ShiftAssignmentRepository extends JpaRepository<ShiftAssignment
             @Param("startTime") java.time.LocalTime startTime,
             @Param("endTime") java.time.LocalTime endTime,
             @Param("excludeAssignmentId") Long excludeAssignmentId);
+
+    /**
+     * Fetches all assignments for a shift with employee and role eagerly loaded.
+     * Scoped to the restaurant to prevent cross-tenant access.
+     *
+     * @param shiftId      the shift's ID
+     * @param restaurantId the restaurant's ID
+     * @return list of assignments with associations initialised, may be empty
+     */
+    @Query("""
+            SELECT sa FROM ShiftAssignment sa
+            JOIN FETCH sa.shift s
+            JOIN FETCH sa.employee e
+            JOIN FETCH sa.role r
+            WHERE s.id = :shiftId
+              AND s.department.restaurant.id = :restaurantId
+            ORDER BY sa.assignedAt
+            """)
+    List<ShiftAssignment> findByShiftIdWithDetails(
+            @Param("shiftId") Long shiftId,
+            @Param("restaurantId") Long restaurantId);
 
     /**
      * Aggregates total scheduled hours per employee for a restaurant within a

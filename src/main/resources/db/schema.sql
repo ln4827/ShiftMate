@@ -346,19 +346,19 @@ INSERT INTO role (restaurant_id, name) VALUES
 -- -----------------------------------------------------------------------------
 INSERT INTO employee (restaurant_id, first_name, last_name, email, password_hash, is_manager, is_active) VALUES
 -- Managers
-(1, 'Ana',     'Kovač',     'ana.kovac@dalmatino.hr',     '$2a$12$KIXQzq3YqQ1v1mZoG3D8SOK.zL7nH3X5q6WJ0yDkRpOjN6vD3XyZa', 1, 1),
-(1, 'Ivan',    'Perić',     'ivan.peric@dalmatino.hr',    '$2a$12$KIXQzq3YqQ1v1mZoG3D8SOK.zL7nH3X5q6WJ0yDkRpOjN6vD3XyZa', 1, 1),
+(1, 'Ana',     'Kovač',     'ana.kovac@dalmatino.hr',     '$2a$10$zh5JX8cDvocPExOGQ4/5q./JHKYlXuPlEjLTMOix9kUy5rFVvBEnm', 1, 1),
+(1, 'Ivan',    'Perić',     'ivan.peric@dalmatino.hr',    '$2a$10$zh5JX8cDvocPExOGQ4/5q./JHKYlXuPlEjLTMOix9kUy5rFVvBEnm', 1, 1),
 -- Kitchen staff
-(1, 'Marko',   'Horvat',    'marko.horvat@dalmatino.hr',  '$2a$12$KIXQzq3YqQ1v1mZoG3D8SOK.zL7nH3X5q6WJ0yDkRpOjN6vD3XyZa', 0, 1),
-(1, 'Lena',    'Babić',     'lena.babic@dalmatino.hr',    '$2a$12$KIXQzq3YqQ1v1mZoG3D8SOK.zL7nH3X5q6WJ0yDkRpOjN6vD3XyZa', 0, 1),
-(1, 'Tomislav','Novak',     'tomislav.novak@dalmatino.hr','$2a$12$KIXQzq3YqQ1v1mZoG3D8SOK.zL7nH3X5q6WJ0yDkRpOjN6vD3XyZa', 0, 1),
+(1, 'Marko',   'Horvat',    'marko.horvat@dalmatino.hr',  '$2a$10$zh5JX8cDvocPExOGQ4/5q./JHKYlXuPlEjLTMOix9kUy5rFVvBEnm', 0, 1),
+(1, 'Lena',    'Babić',     'lena.babic@dalmatino.hr',    '$2a$10$zh5JX8cDvocPExOGQ4/5q./JHKYlXuPlEjLTMOix9kUy5rFVvBEnm', 0, 1),
+(1, 'Tomislav','Novak',     'tomislav.novak@dalmatino.hr','$2a$10$zh5JX8cDvocPExOGQ4/5q./JHKYlXuPlEjLTMOix9kUy5rFVvBEnm', 0, 1),
 -- Bar staff
-(1, 'Sara',    'Jurić',     'sara.juric@dalmatino.hr',    '$2a$12$KIXQzq3YqQ1v1mZoG3D8SOK.zL7nH3X5q6WJ0yDkRpOjN6vD3XyZa', 0, 1),
+(1, 'Sara',    'Jurić',     'sara.juric@dalmatino.hr',    '$2a$10$zh5JX8cDvocPExOGQ4/5q./JHKYlXuPlEjLTMOix9kUy5rFVvBEnm', 0, 1),
 -- Front of House
-(1, 'Petra',   'Blažević',  'petra.blazevic@dalmatino.hr','$2a$12$KIXQzq3YqQ1v1mZoG3D8SOK.zL7nH3X5q6WJ0yDkRpOjN6vD3XyZa', 0, 1),
-(1, 'Nikola',  'Šimić',     'nikola.simic@dalmatino.hr',  '$2a$12$KIXQzq3YqQ1v1mZoG3D8SOK.zL7nH3X5q6WJ0yDkRpOjN6vD3XyZa', 0, 1),
-(1, 'Maja',    'Tomić',     'maja.tomic@dalmatino.hr',    '$2a$12$KIXQzq3YqQ1v1mZoG3D8SOK.zL7nH3X5q6WJ0yDkRpOjN6vD3XyZa', 0, 1),
-(1, 'Dario',   'Knežević',  'dario.knezevic@dalmatino.hr','$2a$12$KIXQzq3YqQ1v1mZoG3D8SOK.zL7nH3X5q6WJ0yDkRpOjN6vD3XyZa', 0, 1);
+(1, 'Petra',   'Blažević',  'petra.blazevic@dalmatino.hr','$2a$10$zh5JX8cDvocPExOGQ4/5q./JHKYlXuPlEjLTMOix9kUy5rFVvBEnm', 0, 1),
+(1, 'Nikola',  'Šimić',     'nikola.simic@dalmatino.hr',  '$2a$10$zh5JX8cDvocPExOGQ4/5q./JHKYlXuPlEjLTMOix9kUy5rFVvBEnm', 0, 1),
+(1, 'Maja',    'Tomić',     'maja.tomic@dalmatino.hr',    '$2a$10$zh5JX8cDvocPExOGQ4/5q./JHKYlXuPlEjLTMOix9kUy5rFVvBEnm', 0, 1),
+(1, 'Dario',   'Knežević',  'dario.knezevic@dalmatino.hr','$2a$10$zh5JX8cDvocPExOGQ4/5q./JHKYlXuPlEjLTMOix9kUy5rFVvBEnm', 0, 1);
 
 -- -----------------------------------------------------------------------------
 -- Employee Roles  (employee_id, role_id)
