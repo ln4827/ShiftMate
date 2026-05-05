@@ -4,6 +4,7 @@ import com.shiftmate.entity.Role;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,4 +39,6 @@ public interface RoleRepository extends JpaRepository<Role, Long> {
      * @return {@code true} if the role already exists
      */
     boolean existsByRestaurantIdAndName(Long restaurantId, String name);
+
+    List<Role> findAllByIdInAndRestaurantId(Collection<Long> ids, Long restaurantId);
 }

@@ -103,11 +103,10 @@
   background: #fff;
   color: #1B2559;
   border: 1px solid #E9EDF7;
-  padding: 6px 14px;
+  padding: 5px 12px;
   border-radius: 8px;
   font-size: 12px;
   font-weight: 600;
-  cursor: pointer;
 }
 .editBtn:hover { background: #F4F7FE; }
 
@@ -130,6 +129,8 @@
   padding: 24px;
   box-shadow: 0 10px 25px rgba(0,0,0,0.1);
   border: none;
+  margin: 0;
+  position: relative;
 }
 
 .modalHeader {

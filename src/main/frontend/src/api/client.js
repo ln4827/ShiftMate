@@ -97,10 +97,6 @@ export const swapApi = {
   reject: (id) => api.post(`/swap-requests/${id}/reject`),
 }
 
-export const reportApi = {
-  hours: (weekStart) => api.get(`/reports/hours?weekStart=${isoWeek(weekStart)}`),
-}
-
 export const availabilityApi = {
   get: (employeeId) => api.get(`/employees/${employeeId}/availability`),
   set: (employeeId, windows) => api.put(`/employees/${employeeId}/availability`, { windows }),

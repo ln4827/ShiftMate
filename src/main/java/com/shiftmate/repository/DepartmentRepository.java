@@ -33,7 +33,8 @@ public interface DepartmentRepository extends JpaRepository<Department, Long> {
     Optional<Department> findByRestaurantIdAndName(Long restaurantId, String name);
 
     /**
-     * Checks whether a department with the given name already exists in a restaurant.
+     * Checks whether a department with the given name already exists in a
+     * restaurant.
      *
      * @param restaurantId the restaurant's ID
      * @param name         the department name to check
@@ -61,4 +62,7 @@ public interface DepartmentRepository extends JpaRepository<Department, Long> {
      */
     @Query("SELECT DISTINCT d FROM Department d LEFT JOIN FETCH d.allowedRoles WHERE d.restaurant.id = :restaurantId")
     List<Department> findByRestaurantIdWithAllowedRoles(@Param("restaurantId") Long restaurantId);
+
+    @Query("SELECT d FROM Department d LEFT JOIN FETCH d.allowedRoles WHERE d.id = :id")
+    Optional<Department> findByIdWithAllowedRoles(@Param("id") Long id);
 }

@@ -117,7 +117,6 @@ export default function NavBar() {
         <NavLink to="/availability" className={navClass}>Availability</NavLink>
         <NavLink to="/time-off" className={navClass}>Time Off</NavLink>
         <NavLink to="/swaps" className={navClass}>Swaps</NavLink>
-        {isManager && <NavLink to="/reports" className={navClass}>Reports</NavLink>}
       </div>
 
       <div className={styles.right}>

@@ -10,7 +10,6 @@ import SchedulePage from './pages/SchedulePage'
 import MySchedulePage from './pages/MySchedulePage'
 import TimeOffPage from './pages/TimeOffPage'
 import SwapsPage from './pages/SwapsPage'
-import ReportsPage from './pages/ReportsPage'
 import AvailabilityPage from './pages/AvailabilityPage'
 import DepartmentsPage from './pages/DepartmentsPage'
 
@@ -102,12 +101,6 @@ export default function App() {
         <Route path="/departments" element={
           <RequireManager>
             <AppLayout><DepartmentsPage /></AppLayout>
-          </RequireManager>
-        } />
-
-        <Route path="/reports" element={
-          <RequireManager>
-            <AppLayout><ReportsPage /></AppLayout>
           </RequireManager>
         } />
 
