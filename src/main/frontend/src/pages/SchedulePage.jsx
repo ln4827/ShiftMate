@@ -2,9 +2,38 @@ import { useState, useEffect, useMemo } from 'react'
 import { shiftApi, departmentApi, employeeApi } from '../api/client'
 import styles from './SchedulePage.module.css'
 
-const toISO   = (d) => d.toISOString().split('T')[0]
-const toMon   = (d) => { const c = new Date(d); c.setDate(d.getDate() - (d.getDay() === 0 ? 6 : d.getDay() - 1)); c.setHours(0,0,0,0); return c }
-const addDays = (d, n) => { const c = new Date(d); c.setDate(d.getDate() + n); return c }
+const parseISO = (value) => {
+  if (typeof value === 'string') {
+    const [y, m, d] = value.split('-').map(Number)
+    return new Date(y, m - 1, d)
+  }
+  return value
+}
+
+const toISO = (d) => {
+  const date = parseISO(d)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const toMon = (d) => {
+  const date = parseISO(d)
+  const c = new Date(date)
+  const weekday = c.getDay() === 0 ? 7 : c.getDay()
+  c.setDate(c.getDate() - (weekday - 1))
+  c.setHours(0, 0, 0, 0)
+  return c
+}
+
+const addDays = (d, n) => {
+  const date = parseISO(d)
+  const c = new Date(date)
+  c.setDate(c.getDate() + n)
+  return c
+}
+
 const fmtDate = (d) => d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' })
 const fmtRange = (d) => `${fmtDate(d)} – ${fmtDate(addDays(d, 6))}`
 
