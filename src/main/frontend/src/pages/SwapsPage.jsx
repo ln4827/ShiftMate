@@ -12,7 +12,7 @@ export default function SwapsPage() {
 
   const [mySwaps, setMySwaps] = useState([])
   const [pending, setPending] = useState([])
-  const [tab, setTab] = useState('my')
+  const [tab, setTab] = useState(isManager ? 'pending' : 'my')
   const [error, setError] = useState('')
 
   // Create Request State
@@ -22,6 +22,7 @@ export default function SwapsPage() {
   const [createData, setCreateData] = useState({ requesterAssignmentId: '', targetAssignmentId: '' })
 
   useEffect(() => { loadMy() }, [])
+  useEffect(() => { if (isManager) loadPending() }, [isManager])
   useEffect(() => { if (isManager && tab === 'pending') loadPending() }, [tab, isManager])
 
   const loadMy = () => swapApi.getMy().then(data => setMySwaps(data ?? [])).catch(() => { })

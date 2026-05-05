@@ -9,6 +9,8 @@ public interface NotificationService {
 
     void send(Long employeeId, Notification.Type type, String message);
 
+    void sendToManagers(Long restaurantId, Notification.Type type, String message);
+
     List<NotificationResponse> getForEmployee(Long employeeId);
 
     long getUnreadCount(Long employeeId);

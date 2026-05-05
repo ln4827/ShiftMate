@@ -57,6 +57,7 @@ public class Notification {
         SWAP_REJECTED,
         TIMEOFF_APPROVED,
         TIMEOFF_REJECTED,
+        TIMEOFF_REQUESTED,
         SWAP_REQUESTED,
         GENERAL
     }

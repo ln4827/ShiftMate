@@ -80,6 +80,7 @@ export default function NavBar() {
         break
       case 'TIMEOFF_APPROVED':
       case 'TIMEOFF_REJECTED':
+      case 'TIMEOFF_REQUESTED':
         navigate('/time-off')
         break
       default:

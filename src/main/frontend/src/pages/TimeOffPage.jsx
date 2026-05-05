@@ -14,7 +14,7 @@ export default function TimeOffPage() {
 
   const [myRequests, setMyRequests]   = useState([])
   const [pending, setPending]         = useState([])
-  const [tab, setTab]                 = useState('my')
+  const [tab, setTab]                 = useState(isManager ? 'pending' : 'my')
   const [form, setForm]               = useState(BLANK)
   const [submitting, setSubmitting]   = useState(false)
   const [formError, setFormError]     = useState('')
@@ -22,6 +22,7 @@ export default function TimeOffPage() {
   const [error, setError]             = useState('')
 
   useEffect(() => { loadMy() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (isManager) loadPending() }, [isManager]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (isManager && tab === 'pending') loadPending() }, [tab, isManager]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadMy      = () => timeOffApi.getMy().then(setMyRequests).catch(() => {})
@@ -37,6 +38,7 @@ export default function TimeOffPage() {
         setForm(BLANK)
         setFormSuccess('Request submitted successfully.')
         loadMy()
+        if (isManager) loadPending()
       })
       .catch(e => setFormError(e.message))
       .finally(() => setSubmitting(false))

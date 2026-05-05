@@ -37,6 +37,21 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
+    @Transactional
+    public void sendToManagers(Long restaurantId, Notification.Type type, String message) {
+        List<Employee> managers = employeeRepository.findByRestaurantIdAndIsManager(restaurantId, true);
+        for (Employee manager : managers) {
+            Notification notification = Notification.builder()
+                    .employee(manager)
+                    .type(type)
+                    .message(message)
+                    .build();
+            notificationRepository.save(notification);
+        }
+        log.debug("Sent notification type={} to {} managers in restaurant id={}", type, managers.size(), restaurantId);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<NotificationResponse> getForEmployee(Long employeeId) {
         return notificationRepository.findByEmployeeIdOrderByCreatedAtDesc(employeeId)

@@ -55,6 +55,9 @@ public class TimeOffServiceImpl implements TimeOffService {
                 .build();
         timeOffRepository.save(tor);
 
+        notificationService.sendToManagers(employee.getRestaurant().getId(), Notification.Type.TIMEOFF_REQUESTED,
+                employee.getFirstName() + " " + employee.getLastName() + " requested time off (" + tor.getStartDate() + " – " + tor.getEndDate() + ").");
+
         log.info("Employee id={} submitted time-off {} to {}", employeeId,
                 req.getStartDate(), req.getEndDate());
         return TimeOffResponse.from(tor);
