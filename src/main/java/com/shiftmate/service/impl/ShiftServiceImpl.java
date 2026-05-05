@@ -39,6 +39,7 @@ public class ShiftServiceImpl implements ShiftService {
 
     private final ShiftRepository shiftRepository;
     private final ShiftCoverageRequirementRepository coverageRequirementRepository;
+    private final SwapRequestRepository swapRequestRepository;
     private final DepartmentRepository departmentRepository;
     private final EmployeeRepository employeeRepository;
     private final RoleRepository roleRepository;
@@ -136,6 +137,10 @@ public class ShiftServiceImpl implements ShiftService {
                     "Cannot delete a published shift that has employees assigned. " +
                     "Unpublish the shift first.");
         }
+
+        // Remove swap requests referencing this shift's assignments before deletion
+        // to avoid FK constraint violations (swap_request → shift_assignment).
+        swapRequestRepository.deleteAll(swapRequestRepository.findByShiftId(shiftId));
 
         shiftRepository.delete(shift);
         log.info("Deleted shift id={}", shiftId);

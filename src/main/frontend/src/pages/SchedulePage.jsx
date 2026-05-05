@@ -51,6 +51,18 @@ function initials(name = '') {
 
 const BLANK_SHIFT = { departmentId: '', shiftDate: '', startTime: '', endTime: '' }
 
+const AVAIL_PREFIX = { available: '✓ ', partial: '~ ', unavailable: '✕ ' }
+const AVAIL_ORDER  = { available: 0, partial: 1, unavailable: 2 }
+
+function computeAvailStatus(avail, dow, startTime, endTime) {
+  const toHH = t => (t || '').slice(0, 5)
+  const windows = avail.filter(w => w.dayOfWeek === dow)
+  if (!windows.length) return 'unavailable'
+  if (windows.some(w => toHH(w.startTime) <= startTime && toHH(w.endTime) >= endTime)) return 'available'
+  if (windows.some(w => toHH(w.startTime) < endTime && toHH(w.endTime) > startTime)) return 'partial'
+  return 'unavailable'
+}
+
 export default function SchedulePage() {
   const { bumpNotifTick } = useAuth()
   const confirm = useConfirm()
@@ -72,8 +84,7 @@ export default function SchedulePage() {
   const [inlineEmpId, setInlineEmpId]       = useState('')
   const [inlineRoleId, setInlineRoleId]     = useState('')
   const [inlineEmpRoles, setInlineEmpRoles] = useState([])
-  const [inlineAvail, setInlineAvail]       = useState([])
-  const [availLoading, setAvailLoading]     = useState(false)
+  const [empAvailMap, setEmpAvailMap]       = useState({})
   const [pendingAdditions, setPendingAdditions] = useState([]) // { tempId, employeeId, employeeName, roleId, roleName }
   const [pendingRemovals, setPendingRemovals]   = useState([]) // assignment IDs to remove on save
 
@@ -84,6 +95,28 @@ export default function SchedulePage() {
   }, [])
 
   useEffect(() => { loadShifts() }, [weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Batch-fetch availability for all active employees whenever the modal's date/time changes
+  useEffect(() => {
+    if (!shiftModal || !formData.shiftDate || !formData.startTime || !formData.endTime) {
+      setEmpAvailMap({})
+      return
+    }
+    const d = new Date(formData.shiftDate + 'T00:00:00')
+    const js = d.getDay()
+    const dow = js === 0 ? 7 : js
+    Promise.all(
+      employees.filter(e => e.active).map(emp =>
+        availabilityApi.get(String(emp.id))
+          .then(avail => ({ id: emp.id, status: computeAvailStatus(avail, dow, formData.startTime, formData.endTime) }))
+          .catch(() => ({ id: emp.id, status: 'unavailable' }))
+      )
+    ).then(results => {
+      const map = {}
+      results.forEach(r => { map[r.id] = r.status })
+      setEmpAvailMap(map)
+    })
+  }, [shiftModal, formData.shiftDate, formData.startTime, formData.endTime]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadShifts = () => {
     setLoading(true)
@@ -140,6 +173,14 @@ export default function SchedulePage() {
     return inlineEmpRoles.filter(r => formDeptAllowedRoleIds.includes(r.id))
   }, [inlineEmpRoles, formDeptAllowedRoleIds])
 
+  // Eligible employees sorted: available first, partial second, unavailable last
+  const sortedEligibleEmps = useMemo(() =>
+    [...eligibleEmps].sort((a, b) =>
+      (AVAIL_ORDER[empAvailMap[a.id]] ?? 3) - (AVAIL_ORDER[empAvailMap[b.id]] ?? 3)
+    ),
+    [eligibleEmps, empAvailMap]
+  )
+
   // Assignments to show in the modal: existing (minus removals) + pending additions
   const displayedAssignments = useMemo(() => {
     const existing = shiftModal?.mode === 'edit'
@@ -161,23 +202,11 @@ export default function SchedulePage() {
     return [...existing, ...added]
   }, [shiftModal, shifts, pendingRemovals, pendingAdditions, roles])
 
-  // Availability status for the currently selected inline employee
+  // Availability status for the currently selected inline employee (read from pre-loaded map)
   const inlineAvailStatus = useMemo(() => {
     if (!inlineEmpId || !formData.shiftDate || !formData.startTime || !formData.endTime) return null
-    if (availLoading) return 'loading'
-    const dow = (() => {
-      const d = new Date(formData.shiftDate + 'T00:00:00')
-      const js = d.getDay()
-      return js === 0 ? 7 : js // ISO: 1=Mon … 7=Sun
-    })()
-    const toHHMM = (t) => (t || '').slice(0, 5)
-    const windows = inlineAvail.filter(w => w.dayOfWeek === dow)
-    if (!windows.length) return 'unavailable'
-    const s = formData.startTime, e = formData.endTime
-    if (windows.some(w => toHHMM(w.startTime) <= s && toHHMM(w.endTime) >= e)) return 'available'
-    if (windows.some(w => toHHMM(w.startTime) < e && toHHMM(w.endTime) > s)) return 'partial'
-    return 'unavailable'
-  }, [inlineEmpId, formData.shiftDate, formData.startTime, formData.endTime, inlineAvail, availLoading])
+    return empAvailMap[Number(inlineEmpId)] || 'loading'
+  }, [inlineEmpId, formData.shiftDate, formData.startTime, formData.endTime, empAvailMap])
 
   // ── Shift CRUD ───────────────────────────────────────────────────────────────
 
@@ -185,8 +214,7 @@ export default function SchedulePage() {
     setInlineEmpId('')
     setInlineRoleId('')
     setInlineEmpRoles([])
-    setInlineAvail([])
-    setAvailLoading(false)
+    setEmpAvailMap({})
     setPendingAdditions([])
     setPendingRemovals([])
   }
@@ -270,12 +298,6 @@ export default function SchedulePage() {
         setError(e.message)
       }
     }
-  }
-
-  const unassign = (shiftId, assignmentId) => {
-    shiftApi.unassign(shiftId, assignmentId)
-      .then(loadShifts)
-      .catch(e => setError(e.message))
   }
 
   // ── Inline assignment handlers ────────────────────────────────────────────────
@@ -397,7 +419,6 @@ export default function SchedulePage() {
                       onEdit={openEdit}
                       onDelete={deleteShift}
                       onTogglePublish={togglePublish}
-                      onUnassign={unassign}
                     />
                   ))}
                   <button
@@ -487,20 +508,13 @@ export default function SchedulePage() {
                       setInlineRoleId('')
                       const emp = employees.find(em => String(em.id) === id)
                       setInlineEmpRoles(emp?.roles || [])
-                      if (id) {
-                        setAvailLoading(true)
-                        availabilityApi.get(id)
-                          .then(setInlineAvail)
-                          .catch(() => setInlineAvail([]))
-                          .finally(() => setAvailLoading(false))
-                      } else {
-                        setInlineAvail([])
-                      }
                     }}
                   >
                     <option value="">Select employee…</option>
-                    {eligibleEmps.map(e => (
-                      <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>
+                    {sortedEligibleEmps.map(e => (
+                      <option key={e.id} value={e.id}>
+                        {AVAIL_PREFIX[empAvailMap[e.id]] ?? ''}{e.firstName} {e.lastName}
+                      </option>
                     ))}
                   </select>
                   <select
@@ -548,7 +562,7 @@ export default function SchedulePage() {
 
 // ── Shift block card ──────────────────────────────────────────────────────────
 
-function ShiftBlock({ shift: s, onEdit, onDelete, onTogglePublish, onUnassign }) {
+function ShiftBlock({ shift: s, onEdit, onDelete, onTogglePublish }) {
   const color = deptColor(s.departmentId)
   return (
     <div className={styles.shiftBlock} style={{ background: color }}>
@@ -572,7 +586,6 @@ function ShiftBlock({ shift: s, onEdit, onDelete, onTogglePublish, onUnassign })
             <div key={a.id} className={styles.assigneeRow}>
               <span className={styles.assigneeAvatar}>{initials(a.employeeName || '')}</span>
               <span className={styles.assigneeName}>{a.employeeName}</span>
-              <button className={styles.removeBtn} onClick={() => onUnassign(s.id, a.id)} title="Remove">&#x2715;</button>
             </div>
           ))}
         </div>

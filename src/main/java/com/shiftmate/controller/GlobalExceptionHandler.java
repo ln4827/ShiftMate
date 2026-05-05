@@ -5,6 +5,7 @@ import com.shiftmate.exception.ResourceNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -93,6 +94,19 @@ public class GlobalExceptionHandler {
     public Map<String, String> handleBadArgument(IllegalArgumentException ex) {
         log.warn("Bad request argument: {}", ex.getMessage());
         return Map.of("error", ex.getMessage());
+    }
+
+    /**
+     * Handles Spring Security access-denied exceptions thrown by @PreAuthorize.
+     * Without this, the catch-all below would intercept them and return 500.
+     *
+     * @param ex the exception
+     * @return a 403 response
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public Map<String, String> handleAccessDenied(AccessDeniedException ex) {
+        return Map.of("error", "Forbidden");
     }
 
     /**

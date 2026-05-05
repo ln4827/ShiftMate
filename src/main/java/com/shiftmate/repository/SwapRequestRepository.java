@@ -83,4 +83,11 @@ public interface SwapRequestRepository extends JpaRepository<SwapRequest, Long> 
             Long requesterAssignmentId,
             Long targetAssignmentId,
             SwapRequest.Status status);
+
+    @Query("""
+            SELECT sr FROM SwapRequest sr
+            WHERE sr.requesterAssignment.shift.id = :shiftId
+               OR sr.targetAssignment.shift.id = :shiftId
+            """)
+    List<SwapRequest> findByShiftId(@Param("shiftId") Long shiftId);
 }

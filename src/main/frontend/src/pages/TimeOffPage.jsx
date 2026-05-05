@@ -25,6 +25,20 @@ export default function TimeOffPage() {
   useEffect(() => { if (isManager) loadPending() }, [isManager]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (isManager && tab === 'pending') loadPending() }, [tab, isManager]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    const es = new EventSource('/api/notifications/stream')
+    es.addEventListener('notification', (e) => {
+      try {
+        const { type } = JSON.parse(e.data)
+        if (type === 'TIMEOFF_REQUESTED' || type === 'TIMEOFF_APPROVED' || type === 'TIMEOFF_REJECTED') {
+          loadMy()
+          if (isManager) loadPending()
+        }
+      } catch {}
+    })
+    return () => es.close()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const loadMy      = () => timeOffApi.getMy().then(setMyRequests).catch(() => {})
   const loadPending = () => timeOffApi.getPending().then(setPending).catch(e => setError(e.message))
 

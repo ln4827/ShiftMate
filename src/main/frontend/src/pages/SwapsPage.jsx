@@ -25,6 +25,20 @@ export default function SwapsPage() {
   useEffect(() => { if (isManager) loadPending() }, [isManager])
   useEffect(() => { if (isManager && tab === 'pending') loadPending() }, [tab, isManager])
 
+  useEffect(() => {
+    const es = new EventSource('/api/notifications/stream')
+    es.addEventListener('notification', (e) => {
+      try {
+        const { type } = JSON.parse(e.data)
+        if (type === 'SWAP_REQUESTED' || type === 'SWAP_APPROVED' || type === 'SWAP_REJECTED') {
+          loadMy()
+          if (isManager) loadPending()
+        }
+      } catch {}
+    })
+    return () => es.close()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const loadMy = () => swapApi.getMy().then(data => setMySwaps(data ?? [])).catch(() => { })
   const loadPending = () => swapApi.getPending().then(data => setPending(data ?? [])).catch(e => setError(e.message))
 
