@@ -38,6 +38,7 @@ export default function SchedulePage() {
   const [shiftModal, setShiftModal]   = useState(null)
   const [assignModal, setAssignModal] = useState(null)
   const [assignForm, setAssignForm]   = useState(BLANK_ASSIGN)
+  const [empRoles, setEmpRoles]       = useState([])
   const [formData, setFormData]       = useState(BLANK_SHIFT)
   const [submitting, setSubmitting]   = useState(false)
   const [modalError, setModalError]   = useState('')
@@ -154,6 +155,7 @@ export default function SchedulePage() {
 
   const openAssign = (shiftId) => {
     setAssignForm(BLANK_ASSIGN)
+    setEmpRoles([])
     setModalError('')
     setAssignModal({ shiftId })
   }
@@ -166,7 +168,7 @@ export default function SchedulePage() {
       employeeId: Number(assignForm.employeeId),
       roleId:     Number(assignForm.roleId),
     })
-      .then(() => { setAssignModal(null); loadShifts() })
+      .then(() => { setAssignModal(null); setEmpRoles([]); loadShifts() })
       .catch(e => setModalError(e.message))
       .finally(() => setSubmitting(false))
   }
@@ -310,7 +312,16 @@ export default function SchedulePage() {
                 <select
                   required
                   value={assignForm.employeeId}
-                  onChange={e => setAssignForm(f => ({ ...f, employeeId: e.target.value }))}
+                  onChange={e => {
+                    const empId = e.target.value
+                    setAssignForm(f => ({ ...f, employeeId: empId, roleId: '' }))
+                    if (empId) {
+                      const employee = employees.find(emp => String(emp.id) === empId)
+                      setEmpRoles(employee?.roles || [])
+                    } else {
+                      setEmpRoles([])
+                    }
+                  }}
                 >
                   <option value="">Select employee…</option>
                   {activeEmps.map(e => {
@@ -339,11 +350,11 @@ export default function SchedulePage() {
                 Role
                 <select required value={assignForm.roleId} onChange={e => setAssignForm(f => ({ ...f, roleId: e.target.value }))}>
                   <option value="">Select role…</option>
-                  {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  {empRoles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                 </select>
               </label>
               <div className={styles.modalFooter}>
-                <button type="button" onClick={() => setAssignModal(null)}>Cancel</button>
+                <button type="button" onClick={() => { setAssignModal(null); setEmpRoles([]) }}>Cancel</button>
                 <button type="submit" disabled={submitting || selectedEmpStatus === 'assigned'}>
                   {submitting ? 'Assigning…' : 'Assign'}
                 </button>
