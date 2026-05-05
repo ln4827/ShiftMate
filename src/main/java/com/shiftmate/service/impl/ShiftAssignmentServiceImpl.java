@@ -1,6 +1,7 @@
 package com.shiftmate.service.impl;
 
-import com.shiftmate.dto.AssignEmployeeRequest;
+import com.shiftmate.dto.AssignmentResponse;
+import com.shiftmate.dto.CreateAssignmentRequest;
 import com.shiftmate.dto.ShiftResponse;
 import com.shiftmate.entity.*;
 import com.shiftmate.exception.BusinessRuleException;
@@ -12,9 +13,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
-import java.time.LocalDate;
 
 @Slf4j
 @Service
@@ -30,10 +31,10 @@ public class ShiftAssignmentServiceImpl implements ShiftAssignmentService {
 
     @Override
     @Transactional
-    public ShiftResponse assign(Long restaurantId, Long shiftId, AssignEmployeeRequest request) {
-        Shift shift    = resolveShift(restaurantId, shiftId);
-        Employee emp   = resolveActiveEmployee(restaurantId, request.getEmployeeId());
-        Role role      = resolveRole(restaurantId, request.getRoleId());
+    public ShiftResponse assign(Long restaurantId, Long shiftId, CreateAssignmentRequest request) {
+        Shift shift  = resolveShift(restaurantId, shiftId);
+        Employee emp = resolveActiveEmployee(restaurantId, request.getEmployeeId());
+        Role role    = resolveRole(restaurantId, request.getRoleId());
 
         if (!employeeRoleRepository.existsByEmployeeIdAndRoleId(emp.getId(), role.getId())) {
             throw new BusinessRuleException(
@@ -90,6 +91,16 @@ public class ShiftAssignmentServiceImpl implements ShiftAssignmentService {
         log.info("Removed assignment id={} from shift id={}", assignmentId, shiftId);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<AssignmentResponse> listAssignments(Long restaurantId, Long shiftId) {
+        resolveShift(restaurantId, shiftId);
+        return assignmentRepository.findByShiftIdWithDetails(shiftId, restaurantId)
+                .stream()
+                .map(AssignmentResponse::from)
+                .toList();
+    }
+
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
@@ -98,11 +109,10 @@ public class ShiftAssignmentServiceImpl implements ShiftAssignmentService {
      * Checks that assigning {@code emp} to {@code shift} creates no time-overlap
      * with an existing assignment. Handles three distinct cases:
      * <ol>
-     *   <li>Same-date overlaps including overnight <em>existing</em> shifts (delegated to the
-     *       updated JPQL query in {@link ShiftAssignmentRepository}).</li>
-     *   <li>Overnight <em>proposed</em> shifts — the JPQL end-time comparison breaks when
-     *       {@code endTime < startTime}, so the pre-midnight and post-midnight windows are
-     *       checked separately.</li>
+     *   <li>Same-date overlaps including overnight existing shifts.</li>
+     *   <li>Overnight proposed shifts — pre-midnight and post-midnight windows
+     *       are checked separately because the JPQL formula breaks when
+     *       {@code endTime < startTime}.</li>
      *   <li>A previous-day overnight shift whose tail bleeds into the target date.</li>
      * </ol>
      */
@@ -110,17 +120,12 @@ public class ShiftAssignmentServiceImpl implements ShiftAssignmentService {
         LocalDate date = shift.getShiftDate();
         String name = emp.getFullName();
 
-        // Case 1 — standard same-date check (updated JPQL handles overnight existing shifts)
         if (!assignmentRepository.findOverlappingAssignments(
                 emp.getId(), date, shift.getStartTime(), shift.getEndTime(), null).isEmpty()) {
             throw new BusinessRuleException(
                     "Employee '" + name + "' has an overlapping shift on " + date + ".");
         }
 
-        // Case 2 — proposed shift is overnight (endTime < startTime):
-        //   the JPQL formula s.startTime < :endTime breaks because :endTime wraps to the next day.
-        //   Explicitly check the window [startTime, midnight) on the same date,
-        //   then [midnight, endTime) on the next calendar date.
         if (shift.isOvernight()) {
             if (!assignmentRepository.findOverlappingAssignments(
                     emp.getId(), date, shift.getStartTime(), LocalTime.MAX, null).isEmpty()) {
@@ -134,8 +139,6 @@ public class ShiftAssignmentServiceImpl implements ShiftAssignmentService {
             }
         }
 
-        // Case 3 — a previous-day overnight shift whose tail bleeds into the target date.
-        //   shiftDate is D-1, but the shift runs past midnight into D, so same-date queries miss it.
         boolean prevDayConflict = shiftRepository.findByEmployeeAndDate(emp.getId(), date.minusDays(1))
                 .stream()
                 .filter(Shift::isOvernight)

@@ -81,6 +81,27 @@ public interface ShiftAssignmentRepository extends JpaRepository<ShiftAssignment
             @Param("excludeAssignmentId") Long excludeAssignmentId);
 
     /**
+     * Fetches all assignments for a shift with employee and role eagerly loaded.
+     * Scoped to the restaurant to prevent cross-tenant access.
+     *
+     * @param shiftId      the shift's ID
+     * @param restaurantId the restaurant's ID
+     * @return list of assignments with associations initialised, may be empty
+     */
+    @Query("""
+            SELECT sa FROM ShiftAssignment sa
+            JOIN FETCH sa.shift s
+            JOIN FETCH sa.employee e
+            JOIN FETCH sa.role r
+            WHERE s.id = :shiftId
+              AND s.department.restaurant.id = :restaurantId
+            ORDER BY sa.assignedAt
+            """)
+    List<ShiftAssignment> findByShiftIdWithDetails(
+            @Param("shiftId") Long shiftId,
+            @Param("restaurantId") Long restaurantId);
+
+    /**
      * Aggregates total scheduled hours per employee for a restaurant within a
      * date range. Used by the hours report to show weekly or monthly summaries.
      *
