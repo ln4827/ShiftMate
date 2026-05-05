@@ -11,6 +11,7 @@ import TimeOffPage from './pages/TimeOffPage'
 import SwapsPage from './pages/SwapsPage'
 import ReportsPage from './pages/ReportsPage'
 import AvailabilityPage from './pages/AvailabilityPage'
+import DepartmentsPage from './pages/DepartmentsPage'
 
 const AuthContext = createContext(null)
 export const useAuth = () => useContext(AuthContext)
@@ -94,6 +95,12 @@ export default function App() {
           <RequireAuth>
             <AppLayout><SwapsPage /></AppLayout>
           </RequireAuth>
+        } />
+
+        <Route path="/departments" element={
+          <RequireManager>
+            <AppLayout><DepartmentsPage /></AppLayout>
+          </RequireManager>
         } />
 
         <Route path="/reports" element={

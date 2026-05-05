@@ -46,6 +46,7 @@ export const employeeApi = {
 
 export const departmentApi = {
   list: () => api.get('/departments'),
+  setAllowedRoles: (id, roleIds) => api.put(`/departments/${id}/allowed-roles`, { roleIds }),
 }
 
 const toLocalIsoDate = (date) => {

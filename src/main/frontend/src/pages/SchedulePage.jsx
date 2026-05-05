@@ -282,6 +282,29 @@ export default function SchedulePage() {
   const activeEmps = employees.filter(e => e.active)
   const selectedEmpStatus = employeeStatus[assignForm.employeeId]
 
+  // Allowed roles for the department of the shift currently being assigned
+  const deptAllowedRoleIds = useMemo(() => {
+    if (!assignModal) return []
+    const shift = shifts.find(s => s.id === assignModal.shiftId)
+    if (!shift) return []
+    const dept = departments.find(d => d.id === shift.departmentId)
+    return dept?.allowedRoleIds || []
+  }, [assignModal, shifts, departments])
+
+  // Only show employees who hold at least one allowed role (when a restriction is configured)
+  const eligibleEmps = useMemo(() => {
+    if (!deptAllowedRoleIds.length) return activeEmps
+    return activeEmps.filter(emp =>
+      emp.roles && emp.roles.some(r => deptAllowedRoleIds.includes(r.id))
+    )
+  }, [activeEmps, deptAllowedRoleIds])
+
+  // When an employee is selected, only show their roles that are allowed for this department
+  const filteredEmpRoles = useMemo(() => {
+    if (!deptAllowedRoleIds.length) return empRoles
+    return empRoles.filter(r => deptAllowedRoleIds.includes(r.id))
+  }, [empRoles, deptAllowedRoleIds])
+
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
@@ -429,7 +452,7 @@ export default function SchedulePage() {
                   }}
                 >
                   <option value="">Select employee…</option>
-                  {activeEmps.map(e => {
+                  {eligibleEmps.map(e => {
                     const st = employeeStatus[String(e.id)] || 'available'
                     const suffix = st === 'conflict'     ? ' — ⚠ shift conflict'
                                  : st === 'unavailable'  ? ' — ⚠ outside availability'
@@ -460,7 +483,7 @@ export default function SchedulePage() {
                 Role
                 <select required value={assignForm.roleId} onChange={e => setAssignForm(f => ({ ...f, roleId: e.target.value }))}>
                   <option value="">Select role…</option>
-                  {empRoles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  {filteredEmpRoles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                 </select>
               </label>
               <div className={styles.modalFooter}>

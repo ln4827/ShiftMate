@@ -5,7 +5,9 @@ import jakarta.validation.constraints.*;
 import lombok.*;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Organisational unit within a restaurant, such as Kitchen, Bar, or Front of House.
@@ -22,7 +24,7 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
-@ToString(exclude = {"restaurant", "shifts"})
+@ToString(exclude = {"restaurant", "shifts", "allowedRoles"})
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Department {
 
@@ -43,6 +45,14 @@ public class Department {
 
     @OneToMany(mappedBy = "department", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Shift> shifts = new ArrayList<>();
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "department_allowed_roles",
+        joinColumns = @JoinColumn(name = "department_id"),
+        inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
+    private Set<Role> allowedRoles = new HashSet<>();
 
     @Builder
     public Department(Restaurant restaurant, String name) {

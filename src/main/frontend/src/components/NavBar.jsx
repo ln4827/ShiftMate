@@ -73,10 +73,9 @@ export default function NavBar() {
 
   const handleNotifClick = (n) => {
     if (!n.read) markOne(n.id)
-    // Navigate based on type
     switch (n.type) {
       case 'SCHEDULE_PUBLISHED':
-        navigate('/my-schedule')
+        navigate(isManager ? '/schedule' : '/my-schedule')
         break
       case 'SWAP_APPROVED':
       case 'SWAP_REJECTED':
@@ -89,10 +88,10 @@ export default function NavBar() {
         navigate('/time-off')
         break
       default:
-        // For GENERAL or unknown, maybe stay or go to home
+        navigate(isManager ? '/schedule' : '/my-schedule')
         break
     }
-    setBellOpen(false) // Close the dropdown
+    setBellOpen(false)
   }
 
   const logout = () => {
@@ -114,6 +113,7 @@ export default function NavBar() {
         {isManager && <NavLink to="/schedule" className={navClass}>Schedule</NavLink>}
         <NavLink to="/my-schedule" className={navClass}>My Schedule</NavLink>
         {isManager && <NavLink to="/employees" className={navClass}>Employees</NavLink>}
+        {isManager && <NavLink to="/departments" className={navClass}>Departments</NavLink>}
         <NavLink to="/availability" className={navClass}>Availability</NavLink>
         <NavLink to="/time-off" className={navClass}>Time Off</NavLink>
         <NavLink to="/swaps" className={navClass}>Swaps</NavLink>

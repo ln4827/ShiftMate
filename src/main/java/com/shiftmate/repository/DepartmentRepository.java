@@ -50,4 +50,15 @@ public interface DepartmentRepository extends JpaRepository<Department, Long> {
      */
     @Query("SELECT d FROM Department d LEFT JOIN FETCH d.shifts WHERE d.restaurant.id = :restaurantId")
     List<Department> findByRestaurantIdWithShifts(@Param("restaurantId") Long restaurantId);
+
+    /**
+     * Fetches departments with their allowedRoles eagerly loaded.
+     * Used whenever {@link com.shiftmate.dto.DepartmentResponse} is constructed,
+     * since that DTO reads the allowedRoles collection.
+     *
+     * @param restaurantId the restaurant's ID
+     * @return departments with the {@code allowedRoles} collection populated
+     */
+    @Query("SELECT DISTINCT d FROM Department d LEFT JOIN FETCH d.allowedRoles WHERE d.restaurant.id = :restaurantId")
+    List<Department> findByRestaurantIdWithAllowedRoles(@Param("restaurantId") Long restaurantId);
 }

@@ -61,6 +61,12 @@ public class SwapRequestServiceImpl implements SwapRequestService {
                 + requester.getShift().getShiftDate() + " shift with your "
                 + target.getShift().getShiftDate() + " shift.");
 
+        notificationService.sendToManagers(restaurantId, Notification.Type.SWAP_REQUESTED,
+                requester.getEmployee().getFullName() + " requested a swap with "
+                + target.getEmployee().getFullName() + " ("
+                + requester.getShift().getShiftDate() + " ↔ "
+                + target.getShift().getShiftDate() + ") — awaiting your approval.");
+
         log.info("Employee id={} requested swap: assignment {} ↔ {}", employeeId,
                 requester.getId(), target.getId());
 

@@ -66,7 +66,26 @@ CREATE TABLE role (
 );
 
 -- -----------------------------------------------------------------------------
--- 4. employee
+-- 4. department_allowed_roles
+--    Defines which roles are eligible to work in a given department.
+--    If a department has no rows here, any role may be assigned (backwards compat).
+--    Must come after both `department` and `role`.
+-- -----------------------------------------------------------------------------
+CREATE TABLE department_allowed_roles (
+    department_id   BIGINT  NOT NULL,
+    role_id         BIGINT  NOT NULL,
+
+    CONSTRAINT pk_dar PRIMARY KEY (department_id, role_id),
+    CONSTRAINT fk_dar_department
+        FOREIGN KEY (department_id) REFERENCES department (id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_dar_role
+        FOREIGN KEY (role_id) REFERENCES role (id)
+        ON DELETE CASCADE
+);
+
+-- -----------------------------------------------------------------------------
+-- 6. employee
 --    All staff members including managers. is_manager flag distinguishes roles.
 --    password_hash stores BCrypt hash (never plain text).
 -- -----------------------------------------------------------------------------
@@ -90,7 +109,7 @@ CREATE TABLE employee (
 );
 
 -- -----------------------------------------------------------------------------
--- 5. employee_role
+-- 7. employee_role
 --    Many-to-many: one employee can hold multiple roles (e.g. Chef + Sous Chef).
 -- -----------------------------------------------------------------------------
 CREATE TABLE employee_role (
@@ -107,7 +126,7 @@ CREATE TABLE employee_role (
 );
 
 -- -----------------------------------------------------------------------------
--- 6. availability
+-- 8. availability
 --    Weekly recurring availability set by the employee.
 --    day_of_week: 1=Monday … 7=Sunday (ISO).
 -- -----------------------------------------------------------------------------
@@ -126,7 +145,7 @@ CREATE TABLE availability (
 );
 
 -- -----------------------------------------------------------------------------
--- 7. shift
+-- 9. shift
 --    A scheduled shift slot. is_published controls employee visibility.
 --    version column enables optimistic locking in Hibernate.
 -- -----------------------------------------------------------------------------
@@ -151,7 +170,7 @@ CREATE TABLE shift (
 );
 
 -- -----------------------------------------------------------------------------
--- 8. shift_assignment
+-- 10. shift_assignment
 --    Assigns one employee to one shift in one role.
 --    version column enables optimistic locking — critical for concurrency (FR-07, AT-12).
 -- -----------------------------------------------------------------------------
@@ -178,7 +197,7 @@ CREATE TABLE shift_assignment (
 );
 
 -- -----------------------------------------------------------------------------
--- 9. shift_coverage_requirement
+-- 11. shift_coverage_requirement
 --    Minimum number of employees per role required for a shift to be valid.
 --    Used for coverage validation (FR-08, FR-09, AT-06).
 -- -----------------------------------------------------------------------------
@@ -200,7 +219,7 @@ CREATE TABLE shift_coverage_requirement (
 );
 
 -- -----------------------------------------------------------------------------
--- 10. swap_request
+-- 12. swap_request
 --     Tracks shift swap requests between employees (FR-13, FR-14, FR-15).
 --     status: PENDING | APPROVED | REJECTED
 --     Both assignment FKs are preserved after a swap for audit purposes.
@@ -230,7 +249,7 @@ CREATE TABLE swap_request (
 );
 
 -- -----------------------------------------------------------------------------
--- 11. time_off_request
+-- 13. time_off_request
 --     Employee requests for time off (FR-16, FR-17).
 --     status: PENDING | APPROVED | REJECTED
 -- -----------------------------------------------------------------------------
@@ -257,7 +276,7 @@ CREATE TABLE time_off_request (
 );
 
 -- -----------------------------------------------------------------------------
--- 12. notification
+-- 14. notification
 --     In-app notification records stored in the database (FR-18, FR-19).
 --     NOT real-time push — polled on page load / navigation.
 --     type: SCHEDULE_PUBLISHED | SWAP_APPROVED | SWAP_REJECTED |
@@ -359,6 +378,17 @@ INSERT INTO employee (restaurant_id, first_name, last_name, email, password_hash
 (1, 'Nikola',  'Šimić',     'nikola.simic@dalmatino.hr',  '$2a$10$zh5JX8cDvocPExOGQ4/5q./JHKYlXuPlEjLTMOix9kUy5rFVvBEnm', 0, 1),
 (1, 'Maja',    'Tomić',     'maja.tomic@dalmatino.hr',    '$2a$10$zh5JX8cDvocPExOGQ4/5q./JHKYlXuPlEjLTMOix9kUy5rFVvBEnm', 0, 1),
 (1, 'Dario',   'Knežević',  'dario.knezevic@dalmatino.hr','$2a$10$zh5JX8cDvocPExOGQ4/5q./JHKYlXuPlEjLTMOix9kUy5rFVvBEnm', 0, 1);
+
+-- -----------------------------------------------------------------------------
+-- Department Allowed Roles  (department_id, role_id)
+-- Kitchen (1): Head Chef, Sous Chef, Line Cook
+-- Bar (2): Bartender
+-- Front of House (3): Waiter, Host
+-- -----------------------------------------------------------------------------
+INSERT INTO department_allowed_roles (department_id, role_id) VALUES
+(1, 1), (1, 2), (1, 3),
+(2, 4),
+(3, 5), (3, 6);
 
 -- -----------------------------------------------------------------------------
 -- Employee Roles  (employee_id, role_id)
@@ -560,11 +590,11 @@ INSERT INTO notification (employee_id, message, type, is_read, created_at) VALUE
 -- Lena notified of approved time off
 (4, 'Your time-off request for Apr 22 has been approved.', 'TIMEOFF_APPROVED', 0, '2026-04-08 09:00:00'),
 -- Manager notified of Tomislav time-off request
-(1, 'Tomislav Novak submitted a time-off request for Apr 25-26.', 'GENERAL', 0, '2026-04-09 09:01:00'),
+(1, 'Tomislav Novak submitted a time-off request for Apr 25-26.', 'TIMEOFF_REQUESTED', 0, '2026-04-09 09:01:00'),
 -- Nikola notified of incoming swap request from Petra
 (8, 'Petra Blažević has requested a shift swap with you for Apr 17.', 'SWAP_REQUESTED', 0, '2026-04-09 10:15:00'),
 -- Manager notified of swap request pending approval
-(1, 'A shift swap request between Petra Blažević and Nikola Šimić is pending your approval.', 'GENERAL', 0, '2026-04-09 10:15:00');
+(1, 'A shift swap request between Petra Blažević and Nikola Šimić is pending your approval.', 'SWAP_REQUESTED', 0, '2026-04-09 10:15:00');
 
 -- =============================================================================
 -- END OF SCRIPT
