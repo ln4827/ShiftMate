@@ -66,6 +66,29 @@ export default function NavBar() {
       .catch(() => {})
   }
 
+  const handleNotifClick = (n) => {
+    if (!n.read) markOne(n.id)
+    // Navigate based on type
+    switch (n.type) {
+      case 'SCHEDULE_PUBLISHED':
+        navigate('/my-schedule')
+        break
+      case 'SWAP_APPROVED':
+      case 'SWAP_REJECTED':
+      case 'SWAP_REQUESTED':
+        navigate('/swaps')
+        break
+      case 'TIMEOFF_APPROVED':
+      case 'TIMEOFF_REJECTED':
+        navigate('/time-off')
+        break
+      default:
+        // For GENERAL or unknown, maybe stay or go to home
+        break
+    }
+    setBellOpen(false) // Close the dropdown
+  }
+
   const logout = () => {
     authApi.logout().finally(() => {
       setUser(null)
@@ -114,7 +137,7 @@ export default function NavBar() {
                   <li
                     key={n.id}
                     className={n.read ? styles.notifRead : styles.notifUnread}
-                    onClick={() => !n.read && markOne(n.id)}
+                    onClick={() => handleNotifClick(n)}
                   >
                     <span className={styles.notifMsg}>{n.message}</span>
                     <span className={styles.notifTime}>{fmtTime(n.createdAt)}</span>
