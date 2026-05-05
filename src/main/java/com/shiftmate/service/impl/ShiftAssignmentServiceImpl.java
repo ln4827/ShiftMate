@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalTime;
 import java.util.List;
 
 @Slf4j
@@ -43,12 +44,7 @@ public class ShiftAssignmentServiceImpl implements ShiftAssignmentService {
                     "Employee '" + emp.getFullName() + "' is already assigned to this shift.");
         }
 
-        List<ShiftAssignment> overlaps = assignmentRepository.findOverlappingAssignments(
-                emp.getId(), shift.getShiftDate(), shift.getStartTime(), shift.getEndTime(), null);
-        if (!overlaps.isEmpty()) {
-            throw new BusinessRuleException(
-                    "Employee '" + emp.getFullName() + "' has an overlapping shift on " + shift.getShiftDate() + ".");
-        }
+        checkForConflicts(emp, shift);
 
         if (!timeOffRequestRepository.findApprovedOverlapping(emp.getId(), shift.getShiftDate()).isEmpty()) {
             throw new BusinessRuleException(
@@ -96,6 +92,59 @@ public class ShiftAssignmentServiceImpl implements ShiftAssignmentService {
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
+
+    /**
+     * Checks that assigning {@code emp} to {@code shift} creates no time-overlap
+     * with an existing assignment. Handles three distinct cases:
+     * <ol>
+     *   <li>Same-date overlaps including overnight <em>existing</em> shifts (delegated to the
+     *       updated JPQL query in {@link ShiftAssignmentRepository}).</li>
+     *   <li>Overnight <em>proposed</em> shifts — the JPQL end-time comparison breaks when
+     *       {@code endTime < startTime}, so the pre-midnight and post-midnight windows are
+     *       checked separately.</li>
+     *   <li>A previous-day overnight shift whose tail bleeds into the target date.</li>
+     * </ol>
+     */
+    private void checkForConflicts(Employee emp, Shift shift) {
+        LocalDate date = shift.getShiftDate();
+        String name = emp.getFullName();
+
+        // Case 1 — standard same-date check (updated JPQL handles overnight existing shifts)
+        if (!assignmentRepository.findOverlappingAssignments(
+                emp.getId(), date, shift.getStartTime(), shift.getEndTime(), null).isEmpty()) {
+            throw new BusinessRuleException(
+                    "Employee '" + name + "' has an overlapping shift on " + date + ".");
+        }
+
+        // Case 2 — proposed shift is overnight (endTime < startTime):
+        //   the JPQL formula s.startTime < :endTime breaks because :endTime wraps to the next day.
+        //   Explicitly check the window [startTime, midnight) on the same date,
+        //   then [midnight, endTime) on the next calendar date.
+        if (shift.isOvernight()) {
+            if (!assignmentRepository.findOverlappingAssignments(
+                    emp.getId(), date, shift.getStartTime(), LocalTime.MAX, null).isEmpty()) {
+                throw new BusinessRuleException(
+                        "Employee '" + name + "' has an overlapping shift on " + date + ".");
+            }
+            if (!assignmentRepository.findOverlappingAssignments(
+                    emp.getId(), date.plusDays(1), LocalTime.MIDNIGHT, shift.getEndTime(), null).isEmpty()) {
+                throw new BusinessRuleException(
+                        "Employee '" + name + "' has a conflicting shift early on " + date.plusDays(1) + ".");
+            }
+        }
+
+        // Case 3 — a previous-day overnight shift whose tail bleeds into the target date.
+        //   shiftDate is D-1, but the shift runs past midnight into D, so same-date queries miss it.
+        boolean prevDayConflict = shiftRepository.findByEmployeeAndDate(emp.getId(), date.minusDays(1))
+                .stream()
+                .filter(Shift::isOvernight)
+                .anyMatch(prev -> prev.getEndTime().isAfter(shift.getStartTime()));
+        if (prevDayConflict) {
+            throw new BusinessRuleException(
+                    "Employee '" + name + "' has an overnight shift from " + date.minusDays(1)
+                    + " that runs into " + date + " and conflicts with this shift.");
+        }
+    }
 
     private Shift resolveShift(Long restaurantId, Long shiftId) {
         return shiftRepository.findById(shiftId)

@@ -67,8 +67,10 @@ public interface ShiftAssignmentRepository extends JpaRepository<ShiftAssignment
             JOIN FETCH sa.shift s
             WHERE sa.employee.id = :employeeId
               AND s.shiftDate = :date
-              AND s.startTime < :endTime
-              AND s.endTime > :startTime
+              AND (
+                (s.endTime > s.startTime AND s.startTime < :endTime AND s.endTime > :startTime)
+                OR (s.endTime <= s.startTime AND (s.startTime < :endTime OR s.endTime > :startTime))
+              )
               AND (:excludeAssignmentId IS NULL OR sa.id <> :excludeAssignmentId)
             """)
     List<ShiftAssignment> findOverlappingAssignments(

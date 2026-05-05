@@ -1,5 +1,6 @@
 package com.shiftmate.dto;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -30,4 +31,10 @@ public class CreateShiftRequest {
 
     @NotNull(message = "End time is required.")
     private LocalTime endTime;
+
+    /** Rejects zero-duration shifts (startTime == endTime). Overnight shifts are allowed. */
+    @AssertTrue(message = "Start time and end time must not be equal.")
+    public boolean isValidTimeRange() {
+        return startTime == null || endTime == null || !startTime.equals(endTime);
+    }
 }
