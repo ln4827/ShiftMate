@@ -65,7 +65,8 @@ export const shiftApi = {
   create: (data) => api.post('/shifts', data),
   update: (id, data) => api.put(`/shifts/${id}`, data),
   delete: (id) => api.delete(`/shifts/${id}`),
-  publish: (id) => api.post(`/shifts/${id}/publish`),
+  publish: (id, force = false) => api.post(`/shifts/${id}/publish?force=${force}`),
+  publishWeek: (weekStart, force = false) => api.post(`/shifts/publish-week?weekStart=${isoWeek(weekStart)}&force=${force}`),
   unpublish: (id) => api.post(`/shifts/${id}/unpublish`),
   setCoverage: (id, data) => api.post(`/shifts/${id}/coverage`, data),
   assign: (shiftId, data) => api.post(`/shifts/${shiftId}/assignments`, data),
@@ -97,4 +98,9 @@ export const swapApi = {
 
 export const reportApi = {
   hours: (weekStart) => api.get(`/reports/hours?weekStart=${isoWeek(weekStart)}`),
+}
+
+export const availabilityApi = {
+  get: (employeeId) => api.get(`/employees/${employeeId}/availability`),
+  set: (employeeId, windows) => api.put(`/employees/${employeeId}/availability`, { windows }),
 }

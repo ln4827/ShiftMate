@@ -10,6 +10,7 @@ import MySchedulePage from './pages/MySchedulePage'
 import TimeOffPage from './pages/TimeOffPage'
 import SwapsPage from './pages/SwapsPage'
 import ReportsPage from './pages/ReportsPage'
+import AvailabilityPage from './pages/AvailabilityPage'
 
 const AuthContext = createContext(null)
 export const useAuth = () => useContext(AuthContext)
@@ -39,6 +40,7 @@ AppLayout.propTypes = { children: PropTypes.node.isRequired }
 
 export default function App() {
   const [user, setUser] = useState(undefined)
+  const [notifTick, setNotifTick] = useState(0)
 
   useEffect(() => {
     authApi.me()
@@ -46,7 +48,11 @@ export default function App() {
       .catch(() => setUser(null))
   }, [])
 
-  const contextValue = useMemo(() => ({ user, setUser }), [user, setUser])
+  const bumpNotifTick = () => setNotifTick(t => t + 1)
+  const contextValue = useMemo(
+    () => ({ user, setUser, notifTick, bumpNotifTick }),
+    [user, setUser, notifTick]
+  )
 
   if (user === undefined) {
     return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading…</div>
@@ -94,6 +100,12 @@ export default function App() {
           <RequireManager>
             <AppLayout><ReportsPage /></AppLayout>
           </RequireManager>
+        } />
+
+        <Route path="/availability" element={
+          <RequireAuth>
+            <AppLayout><AvailabilityPage /></AppLayout>
+          </RequireAuth>
         } />
 
         <Route path="*" element={<Navigate to={user ? defaultRoute : '/login'} replace />} />

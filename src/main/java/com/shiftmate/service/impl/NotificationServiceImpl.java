@@ -7,12 +7,16 @@ import com.shiftmate.exception.ResourceNotFoundException;
 import com.shiftmate.repository.EmployeeRepository;
 import com.shiftmate.repository.NotificationRepository;
 import com.shiftmate.service.NotificationService;
+import com.shiftmate.sse.SseEmitterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -21,6 +25,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final EmployeeRepository employeeRepository;
+    private final SseEmitterRegistry sseEmitterRegistry;
 
     @Override
     @Transactional
@@ -34,6 +39,14 @@ public class NotificationServiceImpl implements NotificationService {
                 .build();
         notificationRepository.save(notification);
         log.debug("Sent notification type={} to employee id={}", type, employeeId);
+
+        // Push SSE event after transaction commits so the DB is visible to the next read
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                sseEmitterRegistry.send(employeeId, "notification", Map.of("type", type.name()));
+            }
+        });
     }
 
     @Override
@@ -49,6 +62,14 @@ public class NotificationServiceImpl implements NotificationService {
             notificationRepository.save(notification);
         }
         log.debug("Sent notification type={} to {} managers in restaurant id={}", type, managers.size(), restaurantId);
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                managers.forEach(m ->
+                        sseEmitterRegistry.send(m.getId(), "notification", Map.of("type", type.name())));
+            }
+        });
     }
 
     @Override

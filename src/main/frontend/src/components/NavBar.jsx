@@ -15,18 +15,23 @@ export default function NavBar() {
   const [bellOpen, setBellOpen] = useState(false)
   const bellRef = useRef(null)
 
-  // Poll unread count every 30 s
+  // SSE stream — connects once on mount, auto-reconnects on drop
   useEffect(() => {
-    let cancelled = false
-    const poll = () => {
+    // Fetch initial unread count
+    notificationApi.unreadCount()
+      .then(d => setUnread(d.count))
+      .catch(() => {})
+
+    const es = new EventSource('/api/notifications/stream')
+
+    es.addEventListener('notification', () => {
       notificationApi.unreadCount()
-        .then(d => { if (!cancelled) setUnread(d.count) })
-        .catch(() => { })
-    }
-    poll()
-    const id = setInterval(poll, 30_000)
-    return () => { cancelled = true; clearInterval(id) }
-  }, [])
+        .then(d => setUnread(d.count))
+        .catch(() => {})
+    })
+
+    return () => es.close()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close bell dropdown on outside click
   useEffect(() => {
@@ -109,6 +114,7 @@ export default function NavBar() {
         {isManager && <NavLink to="/schedule" className={navClass}>Schedule</NavLink>}
         <NavLink to="/my-schedule" className={navClass}>My Schedule</NavLink>
         {isManager && <NavLink to="/employees" className={navClass}>Employees</NavLink>}
+        <NavLink to="/availability" className={navClass}>Availability</NavLink>
         <NavLink to="/time-off" className={navClass}>Time Off</NavLink>
         <NavLink to="/swaps" className={navClass}>Swaps</NavLink>
         {isManager && <NavLink to="/reports" className={navClass}>Reports</NavLink>}

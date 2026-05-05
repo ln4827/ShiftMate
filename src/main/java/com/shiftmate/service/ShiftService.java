@@ -83,16 +83,36 @@ public interface ShiftService {
     void deleteShift(Long restaurantId, Long shiftId);
 
     /**
-     * Publishes a shift, making it visible to assigned employees. Validates that
-     * all coverage requirements are met before publishing.
+     * Publishes a shift, making it visible to assigned employees.
+     *
+     * <p>When {@code force} is {@code false} the service validates coverage requirements
+     * and throws a {@link com.shiftmate.exception.BusinessRuleException} if any are unmet,
+     * letting the caller surface a warning to the user. When {@code force} is {@code true}
+     * the check is skipped and the shift is published regardless of coverage status.
      *
      * @param restaurantId the restaurant's ID
      * @param shiftId      the shift's ID
+     * @param force        {@code true} to publish even when coverage requirements are unmet
      * @return the updated shift response
      * @throws com.shiftmate.exception.ResourceNotFoundException if the shift does not exist
-     * @throws com.shiftmate.exception.BusinessRuleException     if any coverage requirement is unmet
+     * @throws com.shiftmate.exception.BusinessRuleException     if coverage is unmet and force is false
      */
-    ShiftResponse publishShift(Long restaurantId, Long shiftId);
+    ShiftResponse publishShift(Long restaurantId, Long shiftId, boolean force);
+
+    /**
+     * Publishes all draft shifts for the given week in a single transaction.
+     * When {@code force} is {@code false}, all coverage requirements are validated
+     * first and a {@link com.shiftmate.exception.BusinessRuleException} is thrown
+     * listing every unmet requirement. When {@code force} is {@code true} the
+     * coverage check is skipped and all drafts are published regardless.
+     *
+     * @param restaurantId the restaurant's ID
+     * @param weekStart    the Monday of the target week
+     * @param force        {@code true} to publish despite unmet coverage
+     * @return the list of newly published shift responses
+     * @throws com.shiftmate.exception.BusinessRuleException if no drafts exist or coverage is unmet and force is false
+     */
+    List<ShiftResponse> publishWeek(Long restaurantId, LocalDate weekStart, boolean force);
 
     /**
      * Unpublishes a shift, hiding it from employees. Does not affect assignments.

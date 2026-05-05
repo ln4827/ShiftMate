@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
-import { shiftApi, departmentApi, employeeApi } from '../api/client'
+import { shiftApi, departmentApi, employeeApi, availabilityApi } from '../api/client'
+import { useAuth } from '../App'
 import styles from './SchedulePage.module.css'
 
 const parseISO = (value) => {
@@ -56,6 +57,7 @@ const BLANK_SHIFT  = { departmentId: '', shiftDate: '', startTime: '', endTime: 
 const BLANK_ASSIGN = { employeeId: '', roleId: '' }
 
 export default function SchedulePage() {
+  const { bumpNotifTick } = useAuth()
   const [weekStart, setWeekStart] = useState(() => toMon(new Date()))
   const [shifts, setShifts]       = useState([])
   const [departments, setDepts]   = useState([])
@@ -71,6 +73,7 @@ export default function SchedulePage() {
   const [formData, setFormData]       = useState(BLANK_SHIFT)
   const [submitting, setSubmitting]   = useState(false)
   const [modalError, setModalError]   = useState('')
+  const [availabilities, setAvailabilities] = useState({}) // { [empId]: windows[] }
 
   useEffect(() => {
     departmentApi.list().then(setDepts).catch(() => {})
@@ -114,23 +117,44 @@ export default function SchedulePage() {
     if (!assignModal) return {}
     const shift = shifts.find(s => s.id === assignModal.shiftId)
     if (!shift) return {}
+
+    // ISO day of week for the shift: 1=Mon … 7=Sun
+    const d = parseISO(shift.shiftDate)
+    const dow = d.getDay()
+    const isoDay = dow === 0 ? 7 : dow
+
     const status = {}
     employees.filter(e => e.active).forEach(emp => {
       const key = String(emp.id)
+
       if (shift.assignments.some(a => a.employeeId === emp.id)) {
         status[key] = 'assigned'
         return
       }
+
       const conflict = shifts.some(s =>
         s.id !== shift.id &&
         s.shiftDate === shift.shiftDate &&
         s.assignments.some(a => a.employeeId === emp.id) &&
         timesOverlap(s.startTime, s.endTime, shift.startTime, shift.endTime)
       )
-      status[key] = conflict ? 'conflict' : 'available'
+      if (conflict) { status[key] = 'conflict'; return }
+
+      // Availability check — only applies when the employee has set availability
+      const windows = availabilities[emp.id]
+      if (windows && windows.length > 0) {
+        const dayWindows = windows.filter(w => w.dayOfWeek === isoDay)
+        if (dayWindows.length === 0) { status[key] = 'unavailable'; return }
+        const fits = dayWindows.some(w =>
+          shift.startTime >= w.startTime && shift.startTime < w.endTime
+        )
+        if (!fits) { status[key] = 'unavailable'; return }
+      }
+
+      status[key] = 'available'
     })
     return status
-  }, [assignModal, shifts, employees])
+  }, [assignModal, shifts, employees, availabilities])
 
   // ── Shift CRUD ───────────────────────────────────────────────────────────────
 
@@ -175,9 +199,23 @@ export default function SchedulePage() {
     shiftApi.delete(id).then(loadShifts).catch(e => setError(e.message))
   }
 
-  const togglePublish = (s) => {
-    const call = s.published ? shiftApi.unpublish(s.id) : shiftApi.publish(s.id)
-    call.then(loadShifts).catch(e => setError(e.message))
+  const togglePublish = async (s) => {
+    if (s.published) {
+      shiftApi.unpublish(s.id).then(loadShifts).catch(e => setError(e.message))
+      return
+    }
+    try {
+      await shiftApi.publish(s.id)
+      loadShifts()
+    } catch (e) {
+      if (e.message && e.message.toLowerCase().includes('coverage')) {
+        if (window.confirm(`Coverage warning:\n\n${e.message}\n\nPublish anyway?`)) {
+          shiftApi.publish(s.id, true).then(loadShifts).catch(e2 => setError(e2.message))
+        }
+      } else {
+        setError(e.message)
+      }
+    }
   }
 
   // ── Assign ───────────────────────────────────────────────────────────────────
@@ -186,7 +224,20 @@ export default function SchedulePage() {
     setAssignForm(BLANK_ASSIGN)
     setEmpRoles([])
     setModalError('')
+    setAvailabilities({})
     setAssignModal({ shiftId })
+    const active = employees.filter(e => e.active)
+    Promise.all(
+      active.map(emp =>
+        availabilityApi.get(emp.id)
+          .then(windows => ({ empId: emp.id, windows }))
+          .catch(() => ({ empId: emp.id, windows: [] }))
+      )
+    ).then(results => {
+      const map = {}
+      results.forEach(({ empId, windows }) => { map[empId] = windows })
+      setAvailabilities(map)
+    })
   }
 
   const submitAssign = (e) => {
@@ -208,6 +259,26 @@ export default function SchedulePage() {
       .catch(e => setError(e.message))
   }
 
+  const draftCount = shifts.filter(s => !s.published).length
+
+  const publishWeek = async () => {
+    try {
+      await shiftApi.publishWeek(weekStart)
+      loadShifts()
+      bumpNotifTick()
+    } catch (e) {
+      if (e.message && e.message.toLowerCase().includes('coverage')) {
+        if (window.confirm(`Coverage warning:\n\n${e.message}\n\nPublish all drafts anyway?`)) {
+          shiftApi.publishWeek(weekStart, true)
+            .then(() => { loadShifts(); bumpNotifTick() })
+            .catch(e2 => setError(e2.message))
+        }
+      } else {
+        setError(e.message)
+      }
+    }
+  }
+
   const activeEmps = employees.filter(e => e.active)
   const selectedEmpStatus = employeeStatus[assignForm.employeeId]
 
@@ -221,6 +292,11 @@ export default function SchedulePage() {
         <span className={styles.weekLabel}>{fmtRange(weekStart)}</span>
         <button className={styles.weekBtn} onClick={() => setWeekStart(d => addDays(d, 7))}>Next &#8594;</button>
         <div className={styles.toolbarSpacer} />
+        {draftCount > 0 && (
+          <button className={styles.publishWeekBtn} onClick={publishWeek}>
+            Publish Week ({draftCount} draft{draftCount !== 1 ? 's' : ''})
+          </button>
+        )}
         <button className={styles.newBtn} onClick={() => openCreate()}>+ Add Shift</button>
       </div>
 
@@ -355,7 +431,10 @@ export default function SchedulePage() {
                   <option value="">Select employee…</option>
                   {activeEmps.map(e => {
                     const st = employeeStatus[String(e.id)] || 'available'
-                    const suffix = st === 'conflict' ? ' — ⚠ conflict' : st === 'assigned' ? ' — already assigned' : ''
+                    const suffix = st === 'conflict'     ? ' — ⚠ shift conflict'
+                                 : st === 'unavailable'  ? ' — ⚠ outside availability'
+                                 : st === 'assigned'     ? ' — already assigned'
+                                 : ''
                     return (
                       <option key={e.id} value={e.id} disabled={st === 'assigned'}>
                         {e.firstName} {e.lastName}{suffix}
@@ -365,13 +444,15 @@ export default function SchedulePage() {
                 </select>
                 {assignForm.employeeId && (
                   <div className={`${styles.availIndicator} ${
-                    selectedEmpStatus === 'available' ? styles.availGreen :
-                    selectedEmpStatus === 'conflict'  ? styles.availRed   :
+                    selectedEmpStatus === 'available'   ? styles.availGreen  :
+                    selectedEmpStatus === 'conflict'    ? styles.availRed    :
+                    selectedEmpStatus === 'unavailable' ? styles.availYellow :
                     styles.availGrey
                   }`}>
-                    {selectedEmpStatus === 'available' && '● Available — no scheduling conflicts'}
-                    {selectedEmpStatus === 'conflict'  && '● Has a conflicting shift at this time'}
-                    {selectedEmpStatus === 'assigned'  && '● Already assigned to this shift'}
+                    {selectedEmpStatus === 'available'   && '● Available — no scheduling conflicts'}
+                    {selectedEmpStatus === 'conflict'    && '● Has a conflicting shift at this time'}
+                    {selectedEmpStatus === 'unavailable' && '● Outside their stated availability hours'}
+                    {selectedEmpStatus === 'assigned'    && '● Already assigned to this shift'}
                   </div>
                 )}
               </label>
@@ -433,12 +514,11 @@ function ShiftBlock({ shift: s, onEdit, onAssign, onDelete, onTogglePublish, onU
       <div className={styles.shiftActions}>
         <button className={styles.actBtn} onClick={() => onEdit(s)}>Edit</button>
         <button className={styles.actBtn} onClick={() => onAssign(s.id)}>Assign</button>
-        <button
-          className={`${styles.actBtn} ${s.published ? styles.unpublishBtn : styles.publishActBtn}`}
-          onClick={() => onTogglePublish(s)}
-        >
-          {s.published ? 'Unpublish' : 'Publish'}
-        </button>
+        {s.published && (
+          <button className={`${styles.actBtn} ${styles.unpublishBtn}`} onClick={() => onTogglePublish(s)}>
+            Unpublish
+          </button>
+        )}
         <button className={`${styles.actBtn} ${styles.delBtn}`} onClick={() => onDelete(s.id)}>Del</button>
       </div>
     </div>

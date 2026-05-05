@@ -184,9 +184,10 @@ public class ShiftController {
     @PreAuthorize("hasRole('MANAGER')")
     public ShiftResponse publishShift(
             @AuthenticationPrincipal ShiftMateUserDetails principal,
-            @PathVariable Long id) {
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "false") boolean force) {
 
-        return shiftService.publishShift(principal.getRestaurantId(), id);
+        return shiftService.publishShift(principal.getRestaurantId(), id, force);
     }
 
     /**
@@ -196,6 +197,24 @@ public class ShiftController {
      * @param id        the shift's ID
      * @return the updated shift
      */
+    /**
+     * Publishes all draft shifts for the given week in one operation.
+     *
+     * @param principal the authenticated manager
+     * @param weekStart the Monday of the target week
+     * @param force     {@code true} to publish despite unmet coverage requirements
+     * @return the list of newly published shifts
+     */
+    @PostMapping("/publish-week")
+    @PreAuthorize("hasRole('MANAGER')")
+    public List<ShiftResponse> publishWeek(
+            @AuthenticationPrincipal ShiftMateUserDetails principal,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weekStart,
+            @RequestParam(defaultValue = "false") boolean force) {
+
+        return shiftService.publishWeek(principal.getRestaurantId(), weekStart, force);
+    }
+
     @PostMapping("/{id}/unpublish")
     @PreAuthorize("hasRole('MANAGER')")
     public ShiftResponse unpublishShift(

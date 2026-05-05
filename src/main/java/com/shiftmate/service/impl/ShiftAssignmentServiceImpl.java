@@ -15,7 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.TextStyle;
 import java.util.List;
+import java.util.Locale;
 
 @Slf4j
 @Service
@@ -28,6 +30,7 @@ public class ShiftAssignmentServiceImpl implements ShiftAssignmentService {
     private final RoleRepository roleRepository;
     private final EmployeeRoleRepository employeeRoleRepository;
     private final TimeOffRequestRepository timeOffRequestRepository;
+    private final AvailabilityRepository availabilityRepository;
 
     @Override
     @Transactional
@@ -47,6 +50,7 @@ public class ShiftAssignmentServiceImpl implements ShiftAssignmentService {
         }
 
         checkForConflicts(emp, shift);
+        checkAvailability(emp, shift);
 
         if (!timeOffRequestRepository.findApprovedOverlapping(emp.getId(), shift.getShiftDate()).isEmpty()) {
             throw new BusinessRuleException(
@@ -172,5 +176,40 @@ public class ShiftAssignmentServiceImpl implements ShiftAssignmentService {
         return roleRepository.findById(roleId)
                 .filter(r -> r.getRestaurant().getId().equals(restaurantId))
                 .orElseThrow(() -> new ResourceNotFoundException("Role", roleId));
+    }
+
+    /**
+     * Checks that the shift falls within the employee's stated availability for
+     * that day of the week. If the employee has not set any availability at all,
+     * no constraint is applied. If availability is set but the shift day or time
+     * is outside a declared window, a {@link BusinessRuleException} is thrown.
+     */
+    private void checkAvailability(Employee emp, Shift shift) {
+        List<Availability> allWindows = availabilityRepository.findByEmployeeId(emp.getId());
+        if (allWindows.isEmpty()) return;
+
+        int dayOfWeek = shift.getShiftDate().getDayOfWeek().getValue();
+        String dayName = shift.getShiftDate().getDayOfWeek()
+                .getDisplayName(TextStyle.FULL, Locale.ENGLISH);
+
+        List<Availability> dayWindows = allWindows.stream()
+                .filter(a -> a.getDayOfWeek() == dayOfWeek)
+                .toList();
+
+        if (dayWindows.isEmpty()) {
+            throw new BusinessRuleException(
+                    "Employee '" + emp.getFullName() + "' is not available on " + dayName + "s.");
+        }
+
+        boolean fits = dayWindows.stream().anyMatch(w ->
+                !shift.getStartTime().isBefore(w.getStartTime()) &&
+                shift.getStartTime().isBefore(w.getEndTime()));
+
+        if (!fits) {
+            Availability w = dayWindows.get(0);
+            throw new BusinessRuleException(
+                    "Employee '" + emp.getFullName() + "' is only available " +
+                    w.getStartTime() + "–" + w.getEndTime() + " on " + dayName + "s.");
+        }
     }
 }

@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -146,7 +147,7 @@ public class ShiftServiceImpl implements ShiftService {
 
     @Override
     @Transactional
-    public ShiftResponse publishShift(Long restaurantId, Long shiftId) {
+    public ShiftResponse publishShift(Long restaurantId, Long shiftId, boolean force) {
         // Use the coverage-aware fetch so we can validate requirements in the same tx
         Shift shift = resolveShiftWithCoverage(restaurantId, shiftId);
 
@@ -154,7 +155,11 @@ public class ShiftServiceImpl implements ShiftService {
             throw new BusinessRuleException("Shift is already published.");
         }
 
-        validateCoverage(shift);
+        if (!force) {
+            validateCoverage(shift);
+        } else {
+            log.warn("Publishing shift id={} with force=true (coverage check bypassed)", shiftId);
+        }
 
         shift.setPublished(true);
         shiftRepository.save(shift);
@@ -169,6 +174,55 @@ public class ShiftServiceImpl implements ShiftService {
                         + ") has been published."));
 
         return ShiftResponse.from(resolveShiftWithCoverage(restaurantId, shiftId));
+    }
+
+    @Override
+    @Transactional
+    public List<ShiftResponse> publishWeek(Long restaurantId, LocalDate weekStart, boolean force) {
+        LocalDate weekEnd = weekStart.plusDays(6);
+        List<Shift> drafts = shiftRepository.findWeeklySchedule(restaurantId, weekStart, weekEnd)
+                .stream().filter(s -> !s.isPublished()).toList();
+
+        if (drafts.isEmpty()) {
+            throw new BusinessRuleException("There are no draft shifts to publish for this week.");
+        }
+
+        if (!force) {
+            List<String> issues = new ArrayList<>();
+            for (Shift shift : drafts) {
+                try {
+                    validateCoverage(shift);
+                } catch (BusinessRuleException e) {
+                    issues.add(shift.getShiftDate() + " " + shift.getDepartment().getName()
+                            + ": " + e.getMessage().replace("Cannot publish: ", ""));
+                }
+            }
+            if (!issues.isEmpty()) {
+                throw new BusinessRuleException(
+                        "Coverage requirements not met for " + issues.size() + " shift(s):\n"
+                        + String.join("\n", issues));
+            }
+        } else {
+            log.warn("Publishing week {} for restaurant={} with force=true (coverage checks bypassed)",
+                    weekStart, restaurantId);
+        }
+
+        List<ShiftResponse> published = new ArrayList<>();
+        for (Shift shift : drafts) {
+            shift.setPublished(true);
+            shiftRepository.save(shift);
+            shift.getAssignments().forEach(a ->
+                    notificationService.send(a.getEmployee().getId(),
+                            Notification.Type.SCHEDULE_PUBLISHED,
+                            "Your shift on " + shift.getShiftDate() + " ("
+                            + shift.getDepartment().getName() + ", "
+                            + shift.getStartTime() + "–" + shift.getEndTime()
+                            + ") has been published."));
+            published.add(ShiftResponse.from(resolveShiftWithCoverage(restaurantId, shift.getId())));
+        }
+
+        log.info("Published {} draft shifts for restaurant={} week={}", published.size(), restaurantId, weekStart);
+        return published;
     }
 
     @Override

@@ -56,6 +56,19 @@
 }
 .newBtn:hover { background: rgba(67, 24, 255, 0.06); }
 
+.publishWeekBtn {
+  padding: 6px 16px;
+  background: #4318FF;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+.publishWeekBtn:hover { background: #3311DB; }
+
 /* ── Coverage warning banner ── */
 .coverageBanner {
   display: flex;
@@ -479,6 +492,11 @@
 .availGrey {
   color: #4A5568;
   background: #EDF2F7;
+}
+
+.availYellow {
+  color: #92400E;
+  background: #FEF3C7;
 }
 
 .modalFooter {
