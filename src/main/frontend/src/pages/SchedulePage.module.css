@@ -56,18 +56,26 @@
 }
 .newBtn:hover { background: rgba(67, 24, 255, 0.06); }
 
-.publishAllBtn {
-  padding: 6px 16px;
-  background: #4318FF;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
+/* ── Coverage warning banner ── */
+.coverageBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #FFFBEB;
+  color: #78500A;
+  padding: 10px 24px;
   font-size: 13px;
-  font-weight: 600;
-  transition: background 0.15s;
+  border-bottom: 1px solid #FCD34D;
+  flex-shrink: 0;
+  line-height: 1.5;
 }
-.publishAllBtn:hover { background: #3311DB; }
+
+.coverageBannerIcon {
+  font-size: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #D97706;
+}
 
 /* ── Error / loading banners ── */
 .errorBanner {
@@ -91,184 +99,132 @@
   overflow: auto;
 }
 
-/* ── Schedule grid: rows = employees, cols = days ── */
-.grid {
+/* ── Weekly grid: 7 day columns ── */
+.dayGrid {
   display: grid;
-  /* name column + 7 day columns */
-  grid-template-columns: 200px repeat(7, 1fr);
-  min-width: 900px;
+  grid-template-columns: repeat(7, minmax(140px, 1fr));
+  min-width: 980px;
+  min-height: 100%;
   border-left: 1px solid #E9EDF7;
 }
 
-/* ── Header row ── */
-.headerCell {
-  background: #fff;
+/* ── Day column ── */
+.dayColumn {
+  display: flex;
+  flex-direction: column;
   border-right: 1px solid #E9EDF7;
+  background: #F4F7FE;
+}
+
+.dayColumnToday {
+  background: rgba(67, 24, 255, 0.025);
+}
+
+/* ── Day header ── */
+.dayHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 8px 10px;
+  background: #fff;
   border-bottom: 1px solid #E9EDF7;
-  padding: 10px 8px;
-  text-align: center;
   position: sticky;
   top: 0;
   z-index: 10;
+  gap: 2px;
 }
 
-.headerNameCell {
-  background: #fff;
-  border-right: 1px solid #E9EDF7;
-  border-bottom: 1px solid #E9EDF7;
-  padding: 10px 12px;
-  position: sticky;
-  top: 0;
-  left: 0;
-  z-index: 20;
+.dayHeaderToday {
+  background: rgba(67, 24, 255, 0.04);
 }
 
 .dayName {
-  display: block;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   color: #A3AED0;
 }
 
 .dayNum {
-  display: block;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: #1B2559;
-  margin-top: 2px;
 }
 
 .dayNumToday {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  background: #4318FF;
-  color: #fff;
-  border-radius: 50%;
-  font-size: 14px;
-  font-weight: 700;
-  margin-top: 2px;
-}
-
-/* ── Employee row — name cell ── */
-.empCell {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  background: #fff;
-  border-right: 1px solid #E9EDF7;
-  border-bottom: 1px solid #E9EDF7;
-  position: sticky;
-  left: 0;
-  z-index: 5;
-}
-
-.empAvatar {
   width: 32px;
   height: 32px;
+  background: #4318FF;
+  color: #fff;
   border-radius: 50%;
-  background: #4318FF;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
+  font-size: 16px;
   font-weight: 700;
-  flex-shrink: 0;
-  letter-spacing: 0.03em;
 }
 
-.empInfo { min-width: 0; }
-
-.empName {
-  font-size: 13px;
-  font-weight: 600;
-  color: #1B2559;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.empRole {
-  display: inline-block;
-  margin-top: 2px;
-  font-size: 10px;
-  font-weight: 700;
-  color: #fff;
-  background: #4318FF;
-  border-radius: 4px;
-  padding: 1px 6px;
-}
-
-/* ── Day cells ── */
-.dayCell {
-  background: #fff;
-  border-right: 1px solid #E9EDF7;
-  border-bottom: 1px solid #E9EDF7;
-  padding: 6px;
-  min-height: 72px;
-  vertical-align: top;
-  position: relative;
-}
-.dayCell:hover { background: #F4F7FE; }
-.dayCell:hover .addBtn { opacity: 1; }
-
-/* Empty day cell add button */
-.addBtn {
-  position: absolute;
-  inset: 0;
+/* ── Day body (shift cards + add button) ── */
+.dayBody {
+  flex: 1;
+  padding: 8px 6px;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.15s;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* "+ Add" button at bottom of each column */
+.addDayBtn {
+  padding: 7px 0;
   background: none;
-  border: none;
-  cursor: pointer;
-  color: #A3AED0;
-  font-size: 22px;
-  font-weight: 300;
-  border-radius: 0;
-}
-.addBtn:hover { color: #4318FF; }
-
-/* ── "Unassigned shifts" row header ── */
-.unassignedLabel {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #A3AED0;
-  padding: 4px 0 2px;
-}
-
-/* ── Shift block (colored card inside cell) ── */
-.shiftBlock {
+  border: 1.5px dashed #D0D8F0;
   border-radius: 8px;
-  margin: 2px 0;
-  padding: 5px 8px;
+  color: #6B7DB3;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
   width: 100%;
+  margin-top: 2px;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.addDayBtn:hover {
+  border-color: #4318FF;
+  color: #4318FF;
+  background: rgba(67, 24, 255, 0.04);
+}
+
+/* ── Shift block card ── */
+.shiftBlock {
+  border-radius: 10px;
+  padding: 8px 10px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   color: #fff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.14);
   cursor: default;
   position: relative;
-  overflow: hidden;
+}
+
+.shiftTopRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 4px;
+  margin-bottom: 2px;
 }
 
 .shiftTime {
-  display: block;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.shiftBadges {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
 }
 
 .shiftDept {
@@ -276,80 +232,129 @@
   font-size: 10px;
   font-weight: 500;
   opacity: 0.88;
+  margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 1px;
 }
 
-.shiftAssignees {
-  margin-top: 3px;
-  font-size: 10px;
-  font-weight: 500;
-  opacity: 0.9;
-}
-
-.coveragePill {
-  display: inline-block;
-  margin-top: 3px;
-  font-size: 9px;
-  font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: rgba(255,255,255,0.25);
-}
-
-/* Draft badge on shift block */
+/* Draft badge */
 .draftPill {
   display: inline-block;
-  margin-top: 2px;
   font-size: 9px;
   font-weight: 700;
   padding: 1px 5px;
   border-radius: 4px;
-  background: rgba(0,0,0,0.18);
+  background: rgba(0, 0, 0, 0.22);
   letter-spacing: 0.03em;
 }
 
-/* Shift block action buttons (shown on hover) */
+/* Coverage badges */
+.coveragePill {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.coverageMetPill  { background: rgba(1, 181, 116, 0.35); }
+.coverageUnmetPill { background: rgba(255, 200, 0, 0.5); color: #5C3A00; }
+
+/* Assignee list inside shift card */
+.shiftAssignees {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 4px;
+}
+
+.assigneeRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.assigneeAvatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.assigneeName {
+  flex: 1;
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.unassignedHint {
+  font-size: 10px;
+  opacity: 0.65;
+  font-style: italic;
+  margin-bottom: 4px;
+}
+
+/* Remove-assignment × button */
+.removeBtn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.65);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 0 2px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.removeBtn:hover { color: #fff; }
+
+/* Shift action buttons */
 .shiftActions {
   display: flex;
   gap: 3px;
-  margin-top: 4px;
+  margin-top: 5px;
   flex-wrap: wrap;
 }
 
 .actBtn {
-  padding: 2px 6px;
+  padding: 2px 7px;
   font-size: 10px;
   font-weight: 700;
-  border: 1px solid rgba(0,0,0,0.25);
-  border-radius: 4px;
-  background: rgba(0,0,0,0.28);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.22);
   color: #fff;
   cursor: pointer;
   transition: background 0.12s;
   white-space: nowrap;
 }
-.actBtn:hover { background: rgba(0,0,0,0.42); }
+.actBtn:hover { background: rgba(0, 0, 0, 0.38); }
+
+.publishActBtn {
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(1, 181, 116, 0.3);
+}
+.publishActBtn:hover { background: rgba(1, 181, 116, 0.5); }
+
+.unpublishBtn {
+  border-color: rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.15);
+}
+.unpublishBtn:hover { background: rgba(0, 0, 0, 0.3); }
 
 .delBtn {
-  border-color: rgba(255,100,100,0.6);
-  background: rgba(200,0,0,0.2);
+  border-color: rgba(255, 100, 100, 0.5);
+  background: rgba(200, 0, 0, 0.18);
 }
-.delBtn:hover { background: rgba(200,0,0,0.38); }
-
-/* Remove-assignment × */
-.removeBtn {
-  background: none;
-  border: none;
-  color: rgba(255,255,255,0.7);
-  cursor: pointer;
-  font-size: 10px;
-  padding: 0 2px;
-  line-height: 1;
-}
-.removeBtn:hover { color: #fff; }
+.delBtn:hover { background: rgba(200, 0, 0, 0.36); }
 
 /* ── Modal ── */
 .overlay {
@@ -367,10 +372,9 @@
   background: #fff;
   border-radius: 16px;
   padding: 28px;
-  width: 380px;
+  width: 400px;
   max-width: 95vw;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
-  /* reset native <dialog> UA styles */
   border: none;
   margin: 0;
   position: static;
@@ -411,6 +415,7 @@
   margin-bottom: 14px;
 }
 
+/* ── Form ── */
 .form {
   display: flex;
   flex-direction: column;
@@ -444,6 +449,38 @@
   box-shadow: 0 0 0 3px rgba(67, 24, 255, 0.1);
 }
 
+/* Start/end time side-by-side */
+.timeRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* Availability indicator below employee select */
+.availIndicator {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 7px;
+  line-height: 1.4;
+}
+
+.availGreen {
+  color: #166534;
+  background: #DCFCE7;
+}
+
+.availRed {
+  color: #9B2335;
+  background: #FEE2E2;
+}
+
+.availGrey {
+  color: #4A5568;
+  background: #EDF2F7;
+}
+
 .modalFooter {
   display: flex;
   justify-content: flex-end;
@@ -471,4 +508,4 @@
   border-color: #4318FF;
 }
 .modalFooter button[type="submit"]:hover { background: #3311DB; }
-.modalFooter button[type="submit"]:disabled { opacity: 0.6; cursor: default; }
+.modalFooter button[type="submit"]:disabled { opacity: 0.5; cursor: default; }

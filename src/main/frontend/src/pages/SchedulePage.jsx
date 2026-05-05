@@ -11,12 +11,16 @@ const fmtRange = (d) => `${fmtDate(d)} – ${fmtDate(addDays(d, 6))}`
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const TODAY_ISO = toISO(new Date())
 
-// Per-department color palette (cycles through)
 const DEPT_COLORS = ['#01B574', '#4318FF', '#7551FF', '#FF6B35', '#E31A1A', '#39B8FF']
 const deptColor = (deptId) => DEPT_COLORS[(deptId - 1) % DEPT_COLORS.length] || DEPT_COLORS[0]
 
 function initials(name = '') {
   return name.split(' ').map(p => p[0] || '').join('').slice(0, 2).toUpperCase()
+}
+
+// true when [s1,e1) and [s2,e2) overlap (HH:mm strings)
+function timesOverlap(s1, e1, s2, e2) {
+  return s1 < e2 && s2 < e1
 }
 
 const BLANK_SHIFT  = { departmentId: '', shiftDate: '', startTime: '', endTime: '' }
@@ -31,7 +35,6 @@ export default function SchedulePage() {
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState('')
 
-  // Modals
   const [shiftModal, setShiftModal]   = useState(null)
   const [assignModal, setAssignModal] = useState(null)
   const [assignForm, setAssignForm]   = useState(BLANK_ASSIGN)
@@ -56,44 +59,50 @@ export default function SchedulePage() {
       .finally(() => setLoading(false))
   }
 
-  // Weekday ISO dates
   const weekDates = useMemo(() =>
     Array.from({ length: 7 }, (_, i) => toISO(addDays(weekStart, i))),
     [weekStart]
   )
 
-  // Active employees who appear in any shift this week, plus all active employees
-  const activeEmps = useMemo(() =>
-    employees.filter(e => e.active),
-    [employees]
+  // Shifts grouped by date, sorted by start time
+  const shiftsByDay = useMemo(() => {
+    const map = {}
+    weekDates.forEach(d => { map[d] = [] })
+    shifts.forEach(s => { if (map[s.shiftDate]) map[s.shiftDate].push(s) })
+    weekDates.forEach(d => map[d].sort((a, b) => a.startTime.localeCompare(b.startTime)))
+    return map
+  }, [shifts, weekDates])
+
+  // Shifts that have coverage requirements but don't meet them
+  const coverageWarnings = useMemo(() =>
+    shifts.filter(s => s.coverageRequirements?.length > 0 && !s.coverageMet),
+    [shifts]
   )
 
-  // Build map: employeeId → { [date]: [shift, ...] }
-  // Also collect unassigned shifts (no assignments at all)
-  const { empShiftMap, unassignedByDay } = useMemo(() => {
-    const empMap = {}
-    activeEmps.forEach(e => {
-      empMap[e.id] = {}
-      weekDates.forEach(d => { empMap[e.id][d] = [] })
-    })
-    const unassigned = {}
-    weekDates.forEach(d => { unassigned[d] = [] })
-
-    shifts.forEach(s => {
-      if (s.assignments.length === 0) {
-        if (unassigned[s.shiftDate]) unassigned[s.shiftDate].push(s)
+  // Per-employee conflict/availability status for the currently open assign modal
+  const employeeStatus = useMemo(() => {
+    if (!assignModal) return {}
+    const shift = shifts.find(s => s.id === assignModal.shiftId)
+    if (!shift) return {}
+    const status = {}
+    employees.filter(e => e.active).forEach(emp => {
+      const key = String(emp.id)
+      if (shift.assignments.some(a => a.employeeId === emp.id)) {
+        status[key] = 'assigned'
         return
       }
-      s.assignments.forEach(a => {
-        if (empMap[a.employeeId] && empMap[a.employeeId][s.shiftDate] !== undefined) {
-          empMap[a.employeeId][s.shiftDate].push(s)
-        }
-      })
+      const conflict = shifts.some(s =>
+        s.id !== shift.id &&
+        s.shiftDate === shift.shiftDate &&
+        s.assignments.some(a => a.employeeId === emp.id) &&
+        timesOverlap(s.startTime, s.endTime, shift.startTime, shift.endTime)
+      )
+      status[key] = conflict ? 'conflict' : 'available'
     })
-    return { empShiftMap: empMap, unassignedByDay: unassigned }
-  }, [shifts, weekDates, activeEmps])
+    return status
+  }, [assignModal, shifts, employees])
 
-  // ── Shift CRUD ──────────────────────────────────────────────────────────────
+  // ── Shift CRUD ───────────────────────────────────────────────────────────────
 
   const openCreate = (prefillDate) => {
     setFormData({ ...BLANK_SHIFT, shiftDate: prefillDate || toISO(weekStart) })
@@ -125,7 +134,6 @@ export default function SchedulePage() {
     const call = shiftModal.mode === 'create'
       ? shiftApi.create(payload)
       : shiftApi.update(shiftModal.shiftId, payload)
-
     call
       .then(() => { setShiftModal(null); loadShifts() })
       .catch(e => setModalError(e.message))
@@ -134,9 +142,7 @@ export default function SchedulePage() {
 
   const deleteShift = (id) => {
     if (!window.confirm('Delete this shift?')) return
-    shiftApi.delete(id)
-      .then(loadShifts)
-      .catch(e => setError(e.message))
+    shiftApi.delete(id).then(loadShifts).catch(e => setError(e.message))
   }
 
   const togglePublish = (s) => {
@@ -144,7 +150,7 @@ export default function SchedulePage() {
     call.then(loadShifts).catch(e => setError(e.message))
   }
 
-  // ── Assign ──────────────────────────────────────────────────────────────────
+  // ── Assign ───────────────────────────────────────────────────────────────────
 
   const openAssign = (shiftId) => {
     setAssignForm(BLANK_ASSIGN)
@@ -171,7 +177,10 @@ export default function SchedulePage() {
       .catch(e => setError(e.message))
   }
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  const activeEmps = employees.filter(e => e.active)
+  const selectedEmpStatus = employeeStatus[assignForm.employeeId]
+
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <div className={styles.page}>
@@ -184,111 +193,69 @@ export default function SchedulePage() {
         <button className={styles.newBtn} onClick={() => openCreate()}>+ Add Shift</button>
       </div>
 
+      {/* Coverage warning banner */}
+      {coverageWarnings.length > 0 && (
+        <div className={styles.coverageBanner}>
+          <span className={styles.coverageBannerIcon}>&#9888;</span>
+          <div>
+            <strong>{coverageWarnings.length} shift{coverageWarnings.length > 1 ? 's' : ''}</strong>
+            {' '}{coverageWarnings.length > 1 ? 'have' : 'has'} unmet coverage requirements:{' '}
+            {coverageWarnings.map((s, i) => (
+              <span key={s.id}>
+                {i > 0 && ', '}
+                {s.shiftDate} {s.startTime}–{s.endTime}
+                {s.departmentName ? ` (${s.departmentName})` : ''}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {error && <div className={styles.errorBanner}>{error}</div>}
       {loading && <div className={styles.loading}>Loading…</div>}
 
-      {/* Grid */}
+      {/* Weekly grid: 7 day columns, shifts as cards within each column */}
       <div className={styles.gridWrapper}>
-        <div className={styles.grid}>
-
-          {/* Header row */}
-          <div className={styles.headerNameCell} />
+        <div className={styles.dayGrid}>
           {weekDates.map((date, i) => {
             const isToday = date === TODAY_ISO
+            const dayShifts = shiftsByDay[date] || []
             return (
-              <div key={date} className={styles.headerCell}>
-                <span className={styles.dayName}>{DAYS[i]}</span>
-                {isToday
-                  ? <span className={styles.dayNumToday}>{date.slice(8)}</span>
-                  : <span className={styles.dayNum}>{date.slice(8)}</span>
-                }
+              <div key={date} className={`${styles.dayColumn} ${isToday ? styles.dayColumnToday : ''}`}>
+                <div className={`${styles.dayHeader} ${isToday ? styles.dayHeaderToday : ''}`}>
+                  <span className={styles.dayName}>{DAYS[i]}</span>
+                  {isToday
+                    ? <span className={styles.dayNumToday}>{date.slice(8)}</span>
+                    : <span className={styles.dayNum}>{date.slice(8)}</span>
+                  }
+                </div>
+                <div className={styles.dayBody}>
+                  {dayShifts.map(s => (
+                    <ShiftBlock
+                      key={s.id}
+                      shift={s}
+                      onEdit={openEdit}
+                      onAssign={openAssign}
+                      onDelete={deleteShift}
+                      onTogglePublish={togglePublish}
+                      onUnassign={unassign}
+                    />
+                  ))}
+                  <button
+                    className={styles.addDayBtn}
+                    onClick={() => openCreate(date)}
+                    title={`Add shift on ${date}`}
+                  >
+                    + Add
+                  </button>
+                </div>
               </div>
             )
           })}
-
-          {/* Employee rows */}
-          {activeEmps.map(emp => (
-            <>
-              {/* Employee name cell */}
-              <div key={`emp-${emp.id}`} className={styles.empCell}>
-                <div className={styles.empAvatar}>{initials(`${emp.firstName} ${emp.lastName}`)}</div>
-                <div className={styles.empInfo}>
-                  <div className={styles.empName}>{emp.firstName} {emp.lastName}</div>
-                  {emp.roles?.[0] && <span className={styles.empRole}>{emp.roles[0].name}</span>}
-                </div>
-              </div>
-
-              {/* Day cells for this employee */}
-              {weekDates.map(date => {
-                const dayShifts = empShiftMap[emp.id]?.[date] || []
-                // Deduplicate shifts (employee may have multiple assignments in same shift)
-                const uniqueShifts = [...new Map(dayShifts.map(s => [s.id, s])).values()]
-                return (
-                  <div key={`${emp.id}-${date}`} className={styles.dayCell}>
-                    {uniqueShifts.length === 0 && (
-                      <button
-                        className={styles.addBtn}
-                        onClick={() => openCreate(date)}
-                        title="Add shift"
-                      >+</button>
-                    )}
-                    {uniqueShifts.map(s => (
-                      <ShiftBlock
-                        key={s.id}
-                        shift={s}
-                        onEdit={openEdit}
-                        onAssign={openAssign}
-                        onDelete={deleteShift}
-                        onTogglePublish={togglePublish}
-                        onUnassign={unassign}
-                      />
-                    ))}
-                  </div>
-                )
-              })}
-            </>
-          ))}
-
-          {/* Unassigned shifts row */}
-          {shifts.some(s => s.assignments.length === 0) && (
-            <>
-              <div className={styles.empCell}>
-                <div className={styles.empInfo}>
-                  <div className={styles.empName} style={{ color: '#A3AED0', fontStyle: 'italic' }}>Unassigned</div>
-                </div>
-              </div>
-              {weekDates.map(date => {
-                const dayShifts = unassignedByDay[date] || []
-                return (
-                  <div key={`unassigned-${date}`} className={styles.dayCell}>
-                    {dayShifts.length === 0 && (
-                      <button
-                        className={styles.addBtn}
-                        onClick={() => openCreate(date)}
-                        title="Add shift"
-                      >+</button>
-                    )}
-                    {dayShifts.map(s => (
-                      <ShiftBlock
-                        key={s.id}
-                        shift={s}
-                        onEdit={openEdit}
-                        onAssign={openAssign}
-                        onDelete={deleteShift}
-                        onTogglePublish={togglePublish}
-                        onUnassign={unassign}
-                      />
-                    ))}
-                  </div>
-                )
-              })}
-            </>
-          )}
-
         </div>
       </div>
 
-      {/* Shift modal */}
+      {/* Create / Edit Shift modal */}
       {shiftModal && (
         <div className={styles.overlay}>
           <dialog open className={styles.modal} aria-labelledby="shift-modal-title">
@@ -298,27 +265,37 @@ export default function SchedulePage() {
             </div>
             {modalError && <div className={styles.modalError}>{modalError}</div>}
             <form onSubmit={submitShift} className={styles.form}>
-              <label htmlFor="shift-dept">Department</label>
-              <select id="shift-dept" required value={formData.departmentId} onChange={e => setFormData(f => ({ ...f, departmentId: e.target.value }))}>
-                <option value="">Select…</option>
-                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
-              <label htmlFor="shift-date">Date</label>
-              <input id="shift-date" type="date" required value={formData.shiftDate} onChange={e => setFormData(f => ({ ...f, shiftDate: e.target.value }))} />
-              <label htmlFor="shift-start">Start time</label>
-              <input id="shift-start" type="time" required value={formData.startTime} onChange={e => setFormData(f => ({ ...f, startTime: e.target.value }))} />
-              <label htmlFor="shift-end">End time</label>
-              <input id="shift-end" type="time" required value={formData.endTime} onChange={e => setFormData(f => ({ ...f, endTime: e.target.value }))} />
+              <label>
+                Department
+                <select required value={formData.departmentId} onChange={e => setFormData(f => ({ ...f, departmentId: e.target.value }))}>
+                  <option value="">Select department…</option>
+                  {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </label>
+              <label>
+                Date
+                <input type="date" required value={formData.shiftDate} onChange={e => setFormData(f => ({ ...f, shiftDate: e.target.value }))} />
+              </label>
+              <div className={styles.timeRow}>
+                <label>
+                  Start time
+                  <input type="time" required value={formData.startTime} onChange={e => setFormData(f => ({ ...f, startTime: e.target.value }))} />
+                </label>
+                <label>
+                  End time
+                  <input type="time" required value={formData.endTime} onChange={e => setFormData(f => ({ ...f, endTime: e.target.value }))} />
+                </label>
+              </div>
               <div className={styles.modalFooter}>
                 <button type="button" onClick={() => setShiftModal(null)}>Cancel</button>
-                <button type="submit" disabled={submitting}>{submitting ? 'Saving…' : 'Save'}</button>
+                <button type="submit" disabled={submitting}>{submitting ? 'Saving…' : 'Save Shift'}</button>
               </div>
             </form>
           </dialog>
         </div>
       )}
 
-      {/* Assign modal */}
+      {/* Assign Employee modal */}
       {assignModal && (
         <div className={styles.overlay}>
           <dialog open className={styles.modal} aria-labelledby="assign-modal-title">
@@ -328,21 +305,48 @@ export default function SchedulePage() {
             </div>
             {modalError && <div className={styles.modalError}>{modalError}</div>}
             <form onSubmit={submitAssign} className={styles.form}>
-              <label htmlFor="assign-emp">Employee</label>
-              <select id="assign-emp" required value={assignForm.employeeId} onChange={e => setAssignForm(f => ({ ...f, employeeId: e.target.value }))}>
-                <option value="">Select…</option>
-                {employees.filter(e => e.active).map(e => (
-                  <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>
-                ))}
-              </select>
-              <label htmlFor="assign-role">Role</label>
-              <select id="assign-role" required value={assignForm.roleId} onChange={e => setAssignForm(f => ({ ...f, roleId: e.target.value }))}>
-                <option value="">Select…</option>
-                {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-              </select>
+              <label>
+                Employee
+                <select
+                  required
+                  value={assignForm.employeeId}
+                  onChange={e => setAssignForm(f => ({ ...f, employeeId: e.target.value }))}
+                >
+                  <option value="">Select employee…</option>
+                  {activeEmps.map(e => {
+                    const st = employeeStatus[String(e.id)] || 'available'
+                    const suffix = st === 'conflict' ? ' — ⚠ conflict' : st === 'assigned' ? ' — already assigned' : ''
+                    return (
+                      <option key={e.id} value={e.id} disabled={st === 'assigned'}>
+                        {e.firstName} {e.lastName}{suffix}
+                      </option>
+                    )
+                  })}
+                </select>
+                {assignForm.employeeId && (
+                  <div className={`${styles.availIndicator} ${
+                    selectedEmpStatus === 'available' ? styles.availGreen :
+                    selectedEmpStatus === 'conflict'  ? styles.availRed   :
+                    styles.availGrey
+                  }`}>
+                    {selectedEmpStatus === 'available' && '● Available — no scheduling conflicts'}
+                    {selectedEmpStatus === 'conflict'  && '● Has a conflicting shift at this time'}
+                    {selectedEmpStatus === 'assigned'  && '● Already assigned to this shift'}
+                  </div>
+                )}
+              </label>
+              <label>
+                Role
+                <select required value={assignForm.roleId} onChange={e => setAssignForm(f => ({ ...f, roleId: e.target.value }))}>
+                  <option value="">Select role…</option>
+                  {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                </select>
+              </label>
               <div className={styles.modalFooter}>
                 <button type="button" onClick={() => setAssignModal(null)}>Cancel</button>
-                <button type="submit" disabled={submitting}>{submitting ? 'Assigning…' : 'Assign'}</button>
+                <button type="submit" disabled={submitting || selectedEmpStatus === 'assigned'}>
+                  {submitting ? 'Assigning…' : 'Assign'}
+                </button>
               </div>
             </form>
           </dialog>
@@ -352,41 +356,47 @@ export default function SchedulePage() {
   )
 }
 
-// ── Shift block component ────────────────────────────────────────────────────
+// ── Shift block card ──────────────────────────────────────────────────────────
 
 function ShiftBlock({ shift: s, onEdit, onAssign, onDelete, onTogglePublish, onUnassign }) {
   const color = deptColor(s.departmentId)
   return (
-    <div
-      className={styles.shiftBlock}
-      style={{ background: color }}
-    >
-      <span className={styles.shiftTime}>{s.startTime} – {s.endTime}</span>
+    <div className={styles.shiftBlock} style={{ background: color }}>
+      <div className={styles.shiftTopRow}>
+        <span className={styles.shiftTime}>{s.startTime} – {s.endTime}</span>
+        <div className={styles.shiftBadges}>
+          {!s.published && <span className={styles.draftPill}>Draft</span>}
+          {s.coverageRequirements?.length > 0 && (
+            <span className={`${styles.coveragePill} ${s.coverageMet ? styles.coverageMetPill : styles.coverageUnmetPill}`}>
+              {s.coverageMet ? '✓' : '⚠'}
+            </span>
+          )}
+        </div>
+      </div>
+
       <span className={styles.shiftDept}>{s.departmentName}</span>
 
-      {!s.published && <span className={styles.draftPill}>Draft</span>}
-
-      {s.coverageRequirements?.length > 0 && (
-        <span className={styles.coveragePill}>
-          {s.coverageMet ? '✓ Coverage' : '⚠ Unmet'}
-        </span>
-      )}
-
-      {s.assignments.length > 0 && (
+      {s.assignments.length > 0 ? (
         <div className={styles.shiftAssignees}>
           {s.assignments.map(a => (
-            <div key={a.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span>{a.employeeName}</span>
+            <div key={a.id} className={styles.assigneeRow}>
+              <span className={styles.assigneeAvatar}>{initials(a.employeeName || '')}</span>
+              <span className={styles.assigneeName}>{a.employeeName}</span>
               <button className={styles.removeBtn} onClick={() => onUnassign(s.id, a.id)} title="Remove">&#x2715;</button>
             </div>
           ))}
         </div>
+      ) : (
+        <div className={styles.unassignedHint}>No one assigned</div>
       )}
 
       <div className={styles.shiftActions}>
         <button className={styles.actBtn} onClick={() => onEdit(s)}>Edit</button>
         <button className={styles.actBtn} onClick={() => onAssign(s.id)}>Assign</button>
-        <button className={styles.actBtn} onClick={() => onTogglePublish(s)}>
+        <button
+          className={`${styles.actBtn} ${s.published ? styles.unpublishBtn : styles.publishActBtn}`}
+          onClick={() => onTogglePublish(s)}
+        >
           {s.published ? 'Unpublish' : 'Publish'}
         </button>
         <button className={`${styles.actBtn} ${styles.delBtn}`} onClick={() => onDelete(s.id)}>Del</button>
